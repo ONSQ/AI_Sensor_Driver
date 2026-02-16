@@ -1,0 +1,38 @@
+{
+  "name": "sensor-racer-v2",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SensorRacer v2 — Glass-Box AI Education Platform",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ONSQ/AI_Sensor_Driver.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ONSQ/AI_Sensor_Driver/issues"
+  },
+  "homepage": "https://github.com/ONSQ/AI_Sensor_Driver#readme",
+  "dependencies": {
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.5.0",
+    "@tensorflow/tfjs": "^4.22.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "three": "^0.182.0",
+    "zustand": "^5.0.11"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.1.4",
+    "leva": "^0.10.1",
+    "r3f-perf": "^7.2.3",
+    "vite": "^7.3.1"
+  }
+}
