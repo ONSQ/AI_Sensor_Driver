@@ -1,73 +1,64 @@
-import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Grid, Html } from '@react-three/drei';
-import { useRef, useState } from 'react';
-
-function SpinningCube() {
-  const meshRef = useRef();
-  const [hovered, setHovered] = useState(false);
-  const [clicked, setClicked] = useState(false);
-
-  useFrame((state, delta) => {
-    meshRef.current.rotation.x += delta * 0.5;
-    meshRef.current.rotation.y += delta * 0.8;
-  });
-
-  return (
-    <mesh
-      ref={meshRef}
-      scale={clicked ? 1.5 : 1}
-      onClick={() => setClicked(!clicked)}
-      onPointerOver={() => setHovered(true)}
-      onPointerOut={() => setHovered(false)}
-    >
-      <boxGeometry args={[1, 1, 1]} />
-      <meshStandardMaterial color={hovered ? '#ff6600' : '#00ff88'} />
-    </mesh>
-  );
-}
-
-function Placeholder() {
-  return (
-    <Html center>
-      <div style={{
-        background: 'rgba(0,0,0,0.8)',
-        color: '#00ff88',
-        padding: '20px 30px',
-        borderRadius: '8px',
-        border: '1px solid rgba(0,255,136,0.3)',
-        fontFamily: 'monospace',
-        fontSize: '14px',
-        whiteSpace: 'nowrap',
-      }}>
-        SensorRacer v2 — Scaffolding OK
-      </div>
-    </Html>
-  );
-}
+import { Canvas } from '@react-three/fiber';
+import { OrbitControls } from '@react-three/drei';
+import { useControls } from 'leva';
+import CityWorld from './components/world/CityWorld.jsx';
+import useGameStore from './stores/useGameStore.js';
 
 export default function App() {
+  const seed = useGameStore((s) => s.seed);
+  const setSeed = useGameStore((s) => s.setSeed);
+
+  // Debug controls — change seed to regenerate the world
+  const { Seed: debugSeed } = useControls('World', {
+    Seed: { value: seed, min: 0, max: 99999, step: 1 },
+  });
+
+  // Sync leva control to store
+  if (debugSeed !== seed) {
+    setSeed(debugSeed);
+  }
+
   return (
     <div style={{ width: '100vw', height: '100vh' }}>
       <Canvas
-        camera={{ position: [3, 3, 3], fov: 50 }}
+        camera={{ position: [0, 150, 150], fov: 50 }}
         gl={{ antialias: true, alpha: false }}
         dpr={[1, 2]}
+        shadows
       >
-        <color attach="background" args={['#1a1a2e']} />
-        <ambientLight intensity={0.4} />
-        <directionalLight position={[5, 5, 5]} intensity={1} />
-        <SpinningCube />
-        <Placeholder />
-        <Grid
-          infiniteGrid
-          fadeDistance={30}
-          fadeStrength={5}
-          cellSize={1}
-          sectionSize={4}
-          cellColor="#333"
-          sectionColor="#00ff88"
+        <color attach="background" args={['#0a0a1a']} />
+
+        {/* Lighting */}
+        <ambientLight intensity={0.3} />
+        <directionalLight
+          position={[80, 120, 60]}
+          intensity={1.2}
+          castShadow
+          shadow-mapSize={[2048, 2048]}
+          shadow-camera-left={-120}
+          shadow-camera-right={120}
+          shadow-camera-top={120}
+          shadow-camera-bottom={-120}
+          shadow-camera-near={1}
+          shadow-camera-far={300}
         />
-        <OrbitControls makeDefault />
+        <hemisphereLight
+          color="#b1e1ff"
+          groundColor="#1a1a2e"
+          intensity={0.2}
+        />
+
+        {/* World */}
+        <CityWorld seed={debugSeed} />
+
+        {/* Camera controls */}
+        <OrbitControls
+          makeDefault
+          maxPolarAngle={Math.PI / 2.1}
+          minDistance={20}
+          maxDistance={350}
+          target={[0, 0, 0]}
+        />
       </Canvas>
 
       {/* HUD overlay */}
@@ -82,10 +73,11 @@ export default function App() {
         padding: '12px 16px',
         borderRadius: '6px',
         border: '1px solid rgba(0,255,136,0.3)',
+        pointerEvents: 'none',
       }}>
         <div style={{ fontWeight: 'bold', marginBottom: 4 }}>SENSORRACER v2</div>
-        <div>Three.js + React + Vite</div>
-        <div>Click cube to scale | Hover to change color</div>
+        <div>Seed: {debugSeed}</div>
+        <div>Scroll to zoom | Drag to orbit</div>
       </div>
     </div>
   );

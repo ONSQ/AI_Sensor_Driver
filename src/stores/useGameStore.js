@@ -13,7 +13,9 @@ const useGameStore = create((set, get) => ({
   timeRemaining: 600,
   score: 0,
   isRunning: false,
+  seed: 12345,
 
+  setSeed: (seed) => set({ seed }),
   setPhase: (phase) => set({ phase }),
   startGame: () => set({ phase: PHASES.PHASE_A, isRunning: true, timeRemaining: 600, score: 0 }),
   tick: (delta) => {
