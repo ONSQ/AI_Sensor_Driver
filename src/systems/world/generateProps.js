@@ -36,39 +36,45 @@ function generateSpeedSigns(zone, bounds) {
   const { minX, maxX, minZ, maxZ } = bounds;
   const signs = [];
 
-  // Road layout: 10m wide total — | 2m sidewalk | 3m lane | 3m lane | 2m sidewalk |
-  // Road center is at block edge ± ROAD_WIDTH/2 (±5m from block edge)
-  // Sidewalk center on driver's right = road center ± 4m (inside the sidewalk strip)
+  // Road layout: 10m wide — | 2m sidewalk | 3m lane | 3m lane | 2m sidewalk |
+  // Road center sits at block edge ± halfRoad (±5m).
+  // Intersection centers are at block corners (minX-5, minZ-5), etc.
+  // Road SEGMENTS run between intersections, along the block edges.
+  //
+  // Sign must be ON the road segment (not at intersection).
+  // "Along" position: 5m into the segment from the block start edge.
+  // "Across" position: on the sidewalk on the driver's right (4m from road center).
   const halfRoad = GRID.ROAD_WIDTH / 2;            // 5
   const sidewalkOffset = halfRoad - 1;              // 4m from road center = sidewalk center
+  const alongOffset = 5;                            // 5m into the road segment from block edge
 
   const positions = [
     // North road (EW) — eastbound driver (→+X), right = +Z (south sidewalk)
-    // Road center Z: minZ - halfRoad. South sidewalk: + sidewalkOffset
-    // Sign X before block: minX - 5 (just west of block)
+    // Road center Z: minZ - halfRoad. South sidewalk Z: minZ - halfRoad + sidewalkOffset = minZ - 1
+    // Along road: X = minX + alongOffset (5m into segment, past intersection)
     {
-      position: [minX - 5, 0, minZ - halfRoad + sidewalkOffset],
+      position: [minX + alongOffset, 0, minZ - halfRoad + sidewalkOffset],
       rotation: -Math.PI / 2,  // faces +X (toward eastbound driver)
     },
     // South road (EW) — westbound driver (→-X), right = -Z (north sidewalk)
-    // Road center Z: maxZ + halfRoad. North sidewalk: - sidewalkOffset
-    // Sign X before block: maxX + 5 (just east of block)
+    // Road center Z: maxZ + halfRoad. North sidewalk Z: maxZ + halfRoad - sidewalkOffset = maxZ + 1
+    // Along road: X = maxX - alongOffset (5m into segment from east end)
     {
-      position: [maxX + 5, 0, maxZ + halfRoad - sidewalkOffset],
+      position: [maxX - alongOffset, 0, maxZ + halfRoad - sidewalkOffset],
       rotation: Math.PI / 2,   // faces -X (toward westbound driver)
     },
     // West road (NS) — southbound driver (→+Z), right = -X (west sidewalk)
-    // Road center X: minX - halfRoad. West sidewalk: - sidewalkOffset
-    // Sign Z before block: minZ - 5 (just north of block)
+    // Road center X: minX - halfRoad. West sidewalk X: minX - halfRoad - sidewalkOffset = minX - 9
+    // Along road: Z = minZ + alongOffset (5m into segment, past intersection)
     {
-      position: [minX - halfRoad - sidewalkOffset, 0, minZ - 5],
+      position: [minX - halfRoad - sidewalkOffset, 0, minZ + alongOffset],
       rotation: 0,             // faces +Z (toward southbound driver)
     },
     // East road (NS) — northbound driver (→-Z), right = +X (east sidewalk)
-    // Road center X: maxX + halfRoad. East sidewalk: + sidewalkOffset
-    // Sign Z before block: maxZ + 5 (just south of block)
+    // Road center X: maxX + halfRoad. East sidewalk X: maxX + halfRoad + sidewalkOffset = maxX + 9
+    // Along road: Z = maxZ - alongOffset (5m into segment from south end)
     {
-      position: [maxX + halfRoad + sidewalkOffset, 0, maxZ + 5],
+      position: [maxX + halfRoad + sidewalkOffset, 0, maxZ - alongOffset],
       rotation: Math.PI,       // faces -Z (toward northbound driver)
     },
   ];
