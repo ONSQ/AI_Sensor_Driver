@@ -96,40 +96,49 @@ export function generateTrafficLights(intersections) {
 }
 
 /**
- * Stop sign placement — one per corner, same layout as traffic lights.
+ * Stop sign placement — NEAR-RIGHT from driver's perspective.
  *
- * Uses the same diagonal corner mapping as LIGHT_CORNERS so that each
- * approach's sign occupies a unique corner. At perimeter intersections
- * not all 4 approaches exist, so some corners remain empty.
+ * Hard rule: the driver stops AT the stop sign. The sign is on the
+ * driver's right side, at the near edge of the intersection.
  *
- * Corner-to-approach mapping (same as traffic lights):
- *   SW corner [-X, +Z] → faces north (π)    → NORTH approach (southbound driver)
- *   NE corner [+X, -Z] → faces south (0)    → SOUTH approach (northbound driver)
- *   SE corner [+X, +Z] → faces east  (-π/2) → EAST  approach (westbound driver)
- *   NW corner [-X, -Z] → faces west  (π/2)  → WEST  approach (eastbound driver)
+ * Each sign sits on the EDGE of the intersection (not a diagonal corner),
+ * shifted to the driver's right side. This keeps each sign at a unique
+ * position even when two approaches share the same geometric corner.
+ *
+ *   north (→+Z): near edge = north (-Z), right = west (-X)
+ *     Sign on north edge, shifted west: [ix - right, 0, iz - edge]
+ *
+ *   south (→-Z): near edge = south (+Z), right = east (+X)
+ *     Sign on south edge, shifted east: [ix + right, 0, iz + edge]
+ *
+ *   east (→-X): near edge = east (+X), right = south (+Z)
+ *     Sign on east edge, shifted south: [ix + edge, 0, iz + right]
+ *
+ *   west (→+X): near edge = west (-X), right = north (-Z)
+ *     Sign on west edge, shifted north: [ix - edge, 0, iz - right]
  */
-const STOP_CORNERS = [
+const STOP_APPROACHES = [
   {
     id: 'north',
-    corner: [-1, 0, 1],       // SW
+    getPos: (ix, iz, edge, right) => [ix - right, 0, iz - edge],
     facingAngle: Math.PI,
     checkBoundary: (row, _col, _max) => row > 0,
   },
   {
     id: 'south',
-    corner: [1, 0, -1],       // NE
+    getPos: (ix, iz, edge, right) => [ix + right, 0, iz + edge],
     facingAngle: 0,
     checkBoundary: (row, _col, max) => row < max,
   },
   {
     id: 'east',
-    corner: [1, 0, 1],        // SE
+    getPos: (ix, iz, edge, right) => [ix + edge, 0, iz + right],
     facingAngle: -Math.PI / 2,
     checkBoundary: (_row, col, max) => col < max,
   },
   {
     id: 'west',
-    corner: [-1, 0, -1],      // NW
+    getPos: (ix, iz, edge, right) => [ix - edge, 0, iz - right],
     facingAngle: Math.PI / 2,
     checkBoundary: (_row, col, _max) => col > 0,
   },
@@ -144,8 +153,9 @@ const STOP_CORNERS = [
  */
 export function generateStopSigns(intersections) {
   const signs = [];
-  const cornerOffset = TRAFFIC_LIGHT_DIMS.CORNER_OFFSET; // same offset as lights
-  const roadCount = GRID.BLOCKS_PER_SIDE + 1; // 5
+  const edgeOffset = GRID.ROAD_WIDTH / 2;  // 5m — at the intersection edge
+  const rightOffset = 4;                     // 4m right of road center (sidewalk)
+  const roadCount = GRID.BLOCKS_PER_SIDE + 1;
   const maxIdx = roadCount - 1;
 
   for (const inter of intersections) {
@@ -156,18 +166,14 @@ export function generateStopSigns(intersections) {
     const iRow = parseInt(parts[1]);
     const iCol = parseInt(parts[2]);
 
-    for (const sc of STOP_CORNERS) {
-      if (!sc.checkBoundary(iRow, iCol, maxIdx)) continue;
+    for (const sa of STOP_APPROACHES) {
+      if (!sa.checkBoundary(iRow, iCol, maxIdx)) continue;
 
       signs.push({
-        id: `stop-${inter.id}-${sc.id}`,
+        id: `stop-${inter.id}-${sa.id}`,
         intersectionId: inter.id,
-        position: [
-          ix + sc.corner[0] * cornerOffset,
-          0,
-          iz + sc.corner[2] * cornerOffset,
-        ],
-        rotation: sc.facingAngle,
+        position: sa.getPos(ix, iz, edgeOffset, rightOffset),
+        rotation: sa.facingAngle,
       });
     }
   }
