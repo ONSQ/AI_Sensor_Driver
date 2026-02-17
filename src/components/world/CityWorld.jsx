@@ -55,6 +55,18 @@ export default function CityWorld({ seed = 12345 }) {
           rotation={sign.rotation}
         />
       ))}
+
+      {/* Colored road lines for school (yellow) and hospital (red) zones */}
+      {worldData.zoneRoadLines.map((line, i) => (
+        <mesh
+          key={`zrl-${i}`}
+          position={[line.position[0], line.position[1], line.position[2]]}
+          rotation={[-Math.PI / 2, 0, 0]}
+        >
+          <planeGeometry args={[line.width, line.length]} />
+          <meshStandardMaterial color={line.color} />
+        </mesh>
+      ))}
     </group>
   );
 }

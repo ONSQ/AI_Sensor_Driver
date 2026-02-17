@@ -18,34 +18,64 @@ import {
  * Poles are placed at the far-right corner of their approach
  * (like real traffic lights — on the right side of the road you're driving on).
  */
+/**
+ * Right-hand traffic (US-style) signal placement.
+ *
+ * Each approach gets a signal on the RIGHT side of its lane, placed
+ * just BEFORE the intersection (near edge). To avoid overlapping
+ * corners, each approach's pole is positioned on the right side of
+ * the road but offset along the approach direction to a unique spot.
+ *
+ * The signal faces the approaching driver (perpendicular to travel).
+ *
+ * Coordinate system (bird's eye, Y-up):
+ *   +X = East,  -X = West
+ *   +Z = South, -Z = North
+ *
+ *          -Z (North)
+ *              |
+ *    NW(-X,-Z)     NE(+X,-Z)
+ *              |
+ *    -X ----[INTER]---- +X
+ *              |
+ *    SW(-X,+Z)     SE(+X,+Z)
+ *              |
+ *          +Z (South)
+ *
+ * Three.js Y-rotation: 0=faces+Z, π=faces-Z, -π/2=faces+X, π/2=faces-X
+ */
 const APPROACHES = [
   {
     id: 'north',
     axis: 'ns',
-    // Approaching from the north (driving south): pole at top-right corner
+    // Driver from north, driving south (+Z). Right = +X, near = -Z.
+    // Pole at NE corner. Faces north (toward driver).
     poleOffset: [1, 0, -1],
-    facingAngle: Math.PI,        // faces south (toward approaching traffic)
+    facingAngle: Math.PI,
   },
   {
     id: 'south',
     axis: 'ns',
-    // Approaching from the south (driving north): pole at bottom-left corner
+    // Driver from south, driving north (-Z). Right = -X, near = +Z.
+    // Pole at SW corner. Faces south (toward driver).
     poleOffset: [-1, 0, 1],
-    facingAngle: 0,              // faces north
+    facingAngle: 0,
   },
   {
     id: 'east',
     axis: 'ew',
-    // Approaching from the east (driving west): pole at top-right corner
-    poleOffset: [1, 0, 1],
-    facingAngle: -Math.PI / 2,   // faces west
+    // Driver from east, driving west (-X). Right = -Z, far = -X.
+    // Pole at NW corner (far-right). Faces east (toward driver).
+    poleOffset: [-1, 0, -1],
+    facingAngle: -Math.PI / 2,
   },
   {
     id: 'west',
     axis: 'ew',
-    // Approaching from the west (driving east): pole at bottom-left corner
-    poleOffset: [-1, 0, -1],
-    facingAngle: Math.PI / 2,    // faces east
+    // Driver from west, driving east (+X). Right = +Z, far = +X.
+    // Pole at SE corner (far-right). Faces west (toward driver).
+    poleOffset: [1, 0, 1],
+    facingAngle: Math.PI / 2,
   },
 ];
 

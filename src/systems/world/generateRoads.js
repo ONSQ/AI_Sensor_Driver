@@ -44,51 +44,51 @@ function generateLaneMarkings(segment) {
 
 /**
  * Generate crosswalk stripes at an intersection.
- * Places crosswalks on all 4 approaches.
+ * Crosswalks are placed at each edge of the intersection,
+ * with stripes running perpendicular to the road they cross
+ * (spanning the full driving width of the road).
+ *
+ * For NS road edges (north/south): stripes run east-west across the road.
+ * For EW road edges (east/west): stripes run north-south across the road.
  */
 function generateCrosswalks(intersection) {
   const crosswalks = [];
   const [ix, , iz] = intersection.position;
-  const halfRoad = GRID.ROAD_WIDTH / 2;
+  const edgeOffset = CROSSWALK.EDGE_OFFSET;
 
-  // Offset from intersection center to crosswalk center
-  const cwOffset = halfRoad + 2; // 2m into the road segment from intersection edge
+  // Stripe layout along the road direction
+  const totalSpan =
+    CROSSWALK.STRIPE_COUNT * CROSSWALK.STRIPE_WIDTH +
+    (CROSSWALK.STRIPE_COUNT - 1) * CROSSWALK.STRIPE_GAP;
+  const startOffset = -totalSpan / 2 + CROSSWALK.STRIPE_WIDTH / 2;
 
-  // 4 directions: north, south, east, west
-  const directions = [
-    { dx: 0, dz: -cwOffset, orient: 'horizontal' }, // north approach
-    { dx: 0, dz: cwOffset, orient: 'horizontal' },  // south approach
-    { dx: -cwOffset, dz: 0, orient: 'vertical' },   // west approach
-    { dx: cwOffset, dz: 0, orient: 'vertical' },    // east approach
+  // 4 edges of the intersection
+  const edges = [
+    // North & south edges: cross the NS road, stripes run E-W
+    { cx: ix, cz: iz - edgeOffset, dir: 'ew' },
+    { cx: ix, cz: iz + edgeOffset, dir: 'ew' },
+    // West & east edges: cross the EW road, stripes run N-S
+    { cx: ix - edgeOffset, cz: iz, dir: 'ns' },
+    { cx: ix + edgeOffset, cz: iz, dir: 'ns' },
   ];
 
-  for (const dir of directions) {
-    const cx = ix + dir.dx;
-    const cz = iz + dir.dz;
-
-    // Generate individual stripes
-    const totalWidth =
-      CROSSWALK.STRIPE_COUNT * CROSSWALK.STRIPE_WIDTH +
-      (CROSSWALK.STRIPE_COUNT - 1) * CROSSWALK.STRIPE_GAP;
-    const startOffset = -totalWidth / 2 + CROSSWALK.STRIPE_WIDTH / 2;
-
+  for (const edge of edges) {
     for (let s = 0; s < CROSSWALK.STRIPE_COUNT; s++) {
-      const stripeOffset =
-        startOffset + s * (CROSSWALK.STRIPE_WIDTH + CROSSWALK.STRIPE_GAP);
+      const so = startOffset + s * (CROSSWALK.STRIPE_WIDTH + CROSSWALK.STRIPE_GAP);
 
-      if (dir.orient === 'horizontal') {
-        // Stripes run east-west, spaced along Z
+      if (edge.dir === 'ew') {
+        // Stripes run east-west (wide in X), thin in Z, spaced along Z
         crosswalks.push({
-          position: [cx, 0.02, cz + stripeOffset],
-          width: CROSSWALK.STRIPE_LENGTH,
-          length: CROSSWALK.STRIPE_WIDTH,
+          position: [edge.cx, 0.02, edge.cz + so],
+          width: CROSSWALK.STRIPE_LENGTH,   // east-west span (across road)
+          length: CROSSWALK.STRIPE_WIDTH,   // north-south thickness
         });
       } else {
-        // Stripes run north-south, spaced along X
+        // Stripes run north-south (wide in Z), thin in X, spaced along X
         crosswalks.push({
-          position: [cx + stripeOffset, 0.02, cz],
-          width: CROSSWALK.STRIPE_WIDTH,
-          length: CROSSWALK.STRIPE_LENGTH,
+          position: [edge.cx + so, 0.02, edge.cz],
+          width: CROSSWALK.STRIPE_WIDTH,    // east-west thickness
+          length: CROSSWALK.STRIPE_LENGTH,  // north-south span (across road)
         });
       }
     }

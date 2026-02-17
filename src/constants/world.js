@@ -74,7 +74,8 @@ export const LANE_MARKING = {
 // Crosswalk dimensions
 export const CROSSWALK = {
   STRIPE_WIDTH: 0.5,
-  STRIPE_LENGTH: 3,
-  STRIPE_GAP: 0.7,
+  STRIPE_LENGTH: 6,       // spans full driving width (road minus sidewalks)
+  STRIPE_GAP: 0.6,
   STRIPE_COUNT: 6,
+  EDGE_OFFSET: 3.5,       // distance from intersection center to crosswalk center
 };
