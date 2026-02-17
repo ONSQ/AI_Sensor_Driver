@@ -71,11 +71,12 @@ export const LANE_MARKING = {
   DASH_GAP: 3,
 };
 
-// Crosswalk dimensions
+// Crosswalk dimensions — ladder/continental style
+// Stripes run parallel to traffic, spaced across the road width.
 export const CROSSWALK = {
-  STRIPE_WIDTH: 0.5,
-  STRIPE_LENGTH: 6,       // spans full driving width (road minus sidewalks)
-  STRIPE_GAP: 0.6,
-  STRIPE_COUNT: 6,
-  EDGE_OFFSET: 3.5,       // distance from intersection center to crosswalk center
+  STRIPE_WIDTH: 0.6,         // width of each stripe (across-road dimension)
+  STRIPE_LENGTH: 3,          // length of each stripe (along-road / depth of crosswalk band)
+  STRIPE_GAP: 0.5,           // gap between stripes
+  STRIPE_COUNT: 8,           // number of stripes spanning the road width
+  CROSSWALK_DEPTH: 3,        // total depth of crosswalk band along road (= STRIPE_LENGTH)
 };

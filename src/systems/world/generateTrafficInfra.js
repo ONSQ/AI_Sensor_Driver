@@ -5,10 +5,7 @@
 // ============================================================
 
 import { GRID } from '../../constants/world.js';
-import {
-  TRAFFIC_LIGHT_DIMS,
-  STOP_SIGN_DIMS,
-} from '../../constants/traffic.js';
+import { TRAFFIC_LIGHT_DIMS } from '../../constants/traffic.js';
 
 /**
  * 4 approach directions for an intersection.
@@ -113,6 +110,59 @@ export function generateTrafficLights(intersections) {
 }
 
 /**
+ * Stop sign placement — driver stops AT the sign (near-right corner).
+ *
+ * Each approach places the stop sign on the RIGHT side of the driver's lane,
+ * at the NEAR edge of the intersection (just before the driver enters).
+ * The sign faces the approaching driver.
+ *
+ * Coordinate system (bird's eye, Y-up):
+ *   +X = East,  -X = West,  +Z = South,  -Z = North
+ *
+ *   Driver from north (→ south +Z): right = +X, near edge = -Z
+ *     Sign at [ix + right, 0, iz - halfRoad]  faces Math.PI (-Z toward driver)
+ *
+ *   Driver from south (→ north -Z): right = -X, near edge = +Z
+ *     Sign at [ix - right, 0, iz + halfRoad]  faces 0 (+Z toward driver)
+ *
+ *   Driver from east (→ west -X): right = -Z, near edge = +X
+ *     Sign at [ix + halfRoad, 0, iz - right]  faces -π/2 (+X toward driver)
+ *
+ *   Driver from west (→ east +X): right = +Z, near edge = -X
+ *     Sign at [ix - halfRoad, 0, iz + right]  faces π/2 (-X toward driver)
+ */
+const STOP_APPROACHES = [
+  {
+    id: 'north',
+    // Driver from north → south. Right = +X, near edge = iz - halfRoad
+    getPos: (ix, iz, halfRoad, right) => [ix + right, 0, iz - halfRoad],
+    facingAngle: Math.PI,
+    checkBoundary: (row, _col, _max) => row > 0,
+  },
+  {
+    id: 'south',
+    // Driver from south → north. Right = -X, near edge = iz + halfRoad
+    getPos: (ix, iz, halfRoad, right) => [ix - right, 0, iz + halfRoad],
+    facingAngle: 0,
+    checkBoundary: (row, _col, max) => row < max,
+  },
+  {
+    id: 'east',
+    // Driver from east → west. Right = -Z, near edge = ix + halfRoad
+    getPos: (ix, iz, halfRoad, right) => [ix + halfRoad, 0, iz - right],
+    facingAngle: -Math.PI / 2,
+    checkBoundary: (_row, col, max) => col < max,
+  },
+  {
+    id: 'west',
+    // Driver from west → east. Right = +Z, near edge = ix - halfRoad
+    getPos: (ix, iz, halfRoad, right) => [ix - halfRoad, 0, iz + right],
+    facingAngle: Math.PI / 2,
+    checkBoundary: (_row, col, _max) => col > 0,
+  },
+];
+
+/**
  * Generate stop sign placement data for intersections without traffic lights.
  * Only places signs on approaches that connect to actual road segments
  * (perimeter intersections may not have roads on all 4 sides).
@@ -121,36 +171,26 @@ export function generateTrafficLights(intersections) {
  */
 export function generateStopSigns(intersections) {
   const signs = [];
-  const offset = STOP_SIGN_DIMS.CORNER_OFFSET;
+  const halfRoad = GRID.ROAD_WIDTH / 2;    // 5m — distance from center to edge
+  const rightOffset = 4;                     // how far right of road center (on sidewalk edge)
   const roadCount = GRID.BLOCKS_PER_SIDE + 1; // 5
+  const maxIdx = roadCount - 1;
 
   for (const inter of intersections) {
     if (inter.hasTrafficLight) continue;
 
     const [ix, , iz] = inter.position;
-    // Parse row/col from intersection id
     const parts = inter.id.split('-');
     const iRow = parseInt(parts[1]);
     const iCol = parseInt(parts[2]);
 
-    // Only place signs on approaches that have connecting road segments
-    for (const approach of APPROACHES) {
-      let hasRoad = true;
-      if (approach.id === 'north' && iRow === 0) hasRoad = false;
-      if (approach.id === 'south' && iRow === roadCount - 1) hasRoad = false;
-      if (approach.id === 'west' && iCol === 0) hasRoad = false;
-      if (approach.id === 'east' && iCol === roadCount - 1) hasRoad = false;
-
-      if (!hasRoad) continue;
+    for (const approach of STOP_APPROACHES) {
+      if (!approach.checkBoundary(iRow, iCol, maxIdx)) continue;
 
       signs.push({
         id: `stop-${inter.id}-${approach.id}`,
         intersectionId: inter.id,
-        position: [
-          ix + approach.poleOffset[0] * offset,
-          0,
-          iz + approach.poleOffset[2] * offset,
-        ],
+        position: approach.getPos(ix, iz, halfRoad, rightOffset),
         rotation: approach.facingAngle,
       });
     }
