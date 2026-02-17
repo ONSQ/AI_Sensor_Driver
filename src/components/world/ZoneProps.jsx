@@ -5,7 +5,7 @@
 // ============================================================
 
 import { memo } from 'react';
-import { PROP_DIMS as D, PROP_COLORS as C } from '../../constants/traffic.js';
+import { PROP_DIMS as D, PROP_COLORS as C, SPEED_SIGN_DIMS as SD } from '../../constants/traffic.js';
 
 // --- Individual prop components ---
 
@@ -104,6 +104,47 @@ function HospitalCross({ position, rotation }) {
   );
 }
 
+function SpeedLimitSign({ position, rotation }) {
+  return (
+    <group position={position} rotation={[0, rotation, 0]}>
+      {/* Pole */}
+      <mesh position={[0, SD.POLE_HEIGHT / 2, 0]} castShadow>
+        <cylinderGeometry args={[SD.POLE_RADIUS, SD.POLE_RADIUS, SD.POLE_HEIGHT, 8]} />
+        <meshStandardMaterial color={C.SIGN_POLE} />
+      </mesh>
+      {/* Sign face — white rectangle with black border (border = slightly larger box behind) */}
+      <mesh
+        position={[0, SD.POLE_HEIGHT + SD.SIGN_HEIGHT / 2, -0.005]}
+        castShadow
+      >
+        <boxGeometry args={[SD.SIGN_WIDTH + SD.BORDER_WIDTH * 2, SD.SIGN_HEIGHT + SD.BORDER_WIDTH * 2, SD.SIGN_THICKNESS]} />
+        <meshStandardMaterial color={C.SPEED_SIGN_BORDER} />
+      </mesh>
+      {/* White inner face */}
+      <mesh
+        position={[0, SD.POLE_HEIGHT + SD.SIGN_HEIGHT / 2, 0]}
+      >
+        <boxGeometry args={[SD.SIGN_WIDTH, SD.SIGN_HEIGHT, SD.SIGN_THICKNESS]} />
+        <meshStandardMaterial color={C.SPEED_SIGN_BG} />
+      </mesh>
+      {/* "SPEED LIMIT" text area — thin dark stripe near top */}
+      <mesh
+        position={[0, SD.POLE_HEIGHT + SD.SIGN_HEIGHT * 0.85, SD.SIGN_THICKNESS / 2 + 0.002]}
+      >
+        <planeGeometry args={[SD.SIGN_WIDTH * 0.7, SD.SIGN_HEIGHT * 0.12]} />
+        <meshStandardMaterial color={C.SPEED_SIGN_TEXT} />
+      </mesh>
+      {/* Number area — larger dark square in center */}
+      <mesh
+        position={[0, SD.POLE_HEIGHT + SD.SIGN_HEIGHT * 0.45, SD.SIGN_THICKNESS / 2 + 0.002]}
+      >
+        <planeGeometry args={[SD.SIGN_WIDTH * 0.5, SD.SIGN_HEIGHT * 0.4]} />
+        <meshStandardMaterial color={C.SPEED_SIGN_TEXT} />
+      </mesh>
+    </group>
+  );
+}
+
 // --- Prop type dispatcher ---
 
 const PROP_COMPONENTS = {
@@ -111,6 +152,7 @@ const PROP_COMPONENTS = {
   barrier: Barrier,
   school_sign: SchoolSign,
   hospital_cross: HospitalCross,
+  speed_sign: SpeedLimitSign,
 };
 
 /**

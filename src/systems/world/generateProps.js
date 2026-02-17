@@ -5,7 +5,47 @@
 // ============================================================
 
 import { ZONE_TYPES, GRID } from '../../constants/world.js';
+import { SPEED_LIMITS } from '../../constants/traffic.js';
 import { randRange, randBool } from '../../utils/random.js';
+
+/**
+ * Generate speed limit signs at the 4 road-facing edges of a block.
+ * Signs are placed on the right side of the road for approaching drivers.
+ * Each edge gets one sign at a consistent offset from the block center.
+ */
+function generateSpeedSigns(zone, bounds) {
+  const speed = SPEED_LIMITS[zone];
+  if (speed == null) return [];
+
+  const { minX, maxX, minZ, maxZ } = bounds;
+  const signs = [];
+
+  // Place speed limit signs at each road-facing edge, offset to the right
+  // for approaching traffic (consistent with US right-hand traffic)
+  const signEdgeOffset = 1.5; // distance from block edge into the road area
+
+  const positions = [
+    // North edge — facing southbound driver → sign on left side of road (driver's right)
+    { position: [minX - signEdgeOffset, 0, minZ + 8], rotation: Math.PI },
+    // South edge — facing northbound driver → sign on right side of road
+    { position: [maxX + signEdgeOffset, 0, maxZ - 8], rotation: 0 },
+    // West edge — facing eastbound driver → sign on right side of road
+    { position: [minX + 8, 0, maxZ + signEdgeOffset], rotation: Math.PI / 2 },
+    // East edge — facing westbound driver → sign on left side of road (driver's right)
+    { position: [maxX - 8, 0, minZ - signEdgeOffset], rotation: -Math.PI / 2 },
+  ];
+
+  for (const sp of positions) {
+    signs.push({
+      type: 'speed_sign',
+      position: sp.position,
+      rotation: sp.rotation,
+      speed,
+    });
+  }
+
+  return signs;
+}
 
 /**
  * Generate zone-specific props for a block.
@@ -16,16 +56,25 @@ import { randRange, randBool } from '../../utils/random.js';
  * @returns {Array<{ type, position, rotation, color, ... }>}
  */
 export function generateProps(zone, bounds, center, rng) {
+  // Speed limit signs for every zone type
+  const speedSigns = generateSpeedSigns(zone, bounds);
+
+  let zoneProps;
   switch (zone) {
     case ZONE_TYPES.CONSTRUCTION:
-      return generateConstructionProps(bounds, rng);
+      zoneProps = generateConstructionProps(bounds, rng);
+      break;
     case ZONE_TYPES.SCHOOL:
-      return generateSchoolProps(bounds, center, rng);
+      zoneProps = generateSchoolProps(bounds, center, rng);
+      break;
     case ZONE_TYPES.HOSPITAL:
-      return generateHospitalProps(bounds, center, rng);
+      zoneProps = generateHospitalProps(bounds, center, rng);
+      break;
     default:
-      return [];
+      zoneProps = [];
   }
+
+  return [...speedSigns, ...zoneProps];
 }
 
 /**
@@ -118,23 +167,27 @@ function generateSchoolProps(bounds, center, rng) {
 }
 
 /**
- * Hospital zone: red cross marker near the hospital building.
+ * Hospital zone: red cross markers at all 4 road-facing edges.
  */
 function generateHospitalProps(bounds, center, rng) {
   const props = [];
+  const { minX, maxX, minZ, maxZ } = bounds;
 
-  // Place a red cross marker in front of the hospital (offset toward nearest road)
-  props.push({
-    type: 'hospital_cross',
-    position: [center[0], 0, bounds.minZ - 1],
-    rotation: 0,
-  });
+  // Place a red cross marker on each road-facing edge of the hospital block
+  const crossPositions = [
+    { position: [(minX + maxX) / 2, 0, minZ - 1], rotation: 0 },             // north edge
+    { position: [(minX + maxX) / 2, 0, maxZ + 1], rotation: Math.PI },       // south edge
+    { position: [minX - 1, 0, (minZ + maxZ) / 2], rotation: Math.PI / 2 },   // west edge
+    { position: [maxX + 1, 0, (minZ + maxZ) / 2], rotation: -Math.PI / 2 },  // east edge
+  ];
 
-  props.push({
-    type: 'hospital_cross',
-    position: [center[0], 0, bounds.maxZ + 1],
-    rotation: Math.PI,
-  });
+  for (const cp of crossPositions) {
+    props.push({
+      type: 'hospital_cross',
+      position: cp.position,
+      rotation: cp.rotation,
+    });
+  }
 
   return props;
 }

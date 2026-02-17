@@ -3,39 +3,107 @@
 // Pure function: (gridConfig) → road data
 // ============================================================
 
-import { GRID, LANE_MARKING, CROSSWALK } from '../../constants/world.js';
+import { GRID, LANE_MARKING, CROSSWALK, ZONE_MAP, NO_PASSING_ZONES, LANE_COLORS } from '../../constants/world.js';
 import {
   getIntersectionCenter,
   getRoadSegmentData,
 } from '../../utils/blockLayout.js';
 
 /**
- * Generate lane marking dashes for a road segment.
+ * Check if a road segment is adjacent to a no-passing zone (school/hospital/construction).
+ * A horizontal segment at row r between cols c and c+1 borders block (r-1,c) above and (r,c) below.
+ * A vertical segment at col c between rows r and r+1 borders block (r,c-1) left and (r,c) right.
  */
-function generateLaneMarkings(segment) {
+function isNoPassingSegment(row, col, orientation) {
+  const maxBlock = GRID.BLOCKS_PER_SIDE - 1; // 3
+  const adjacent = [];
+
+  if (orientation === 'horizontal') {
+    // Horizontal road at intersection-row r, between intersection-cols c and c+1
+    // Block above: (r-1, c)   Block below: (r, c)
+    if (row > 0 && col <= maxBlock)  adjacent.push(ZONE_MAP[row - 1][col]);
+    if (row <= maxBlock && col <= maxBlock) adjacent.push(ZONE_MAP[row][col]);
+  } else {
+    // Vertical road at intersection-col c, between intersection-rows r and r+1
+    // Block left: (r, c-1)   Block right: (r, c)
+    if (col > 0 && row <= maxBlock) adjacent.push(ZONE_MAP[row][col - 1]);
+    if (col <= maxBlock && row <= maxBlock) adjacent.push(ZONE_MAP[row][col]);
+  }
+
+  return adjacent.some((zone) => NO_PASSING_ZONES.has(zone));
+}
+
+/**
+ * Generate lane markings for a road segment.
+ * Normal roads: dashed yellow center line.
+ * No-passing zones (school/hospital/construction): solid double-yellow center lines.
+ */
+function generateLaneMarkings(segment, isSolid) {
   const markings = [];
   const { center, length, orientation } = segment;
+  const color = LANE_COLORS.CENTER_YELLOW;
 
-  // Dashes along the center line of the road
-  const dashCount = Math.floor(length / (LANE_MARKING.DASH_LENGTH + LANE_MARKING.DASH_GAP));
-  const totalDashSpan = dashCount * (LANE_MARKING.DASH_LENGTH + LANE_MARKING.DASH_GAP);
-  const startOffset = -totalDashSpan / 2 + LANE_MARKING.DASH_LENGTH / 2;
-
-  for (let i = 0; i < dashCount; i++) {
-    const offset = startOffset + i * (LANE_MARKING.DASH_LENGTH + LANE_MARKING.DASH_GAP);
+  if (isSolid) {
+    // Solid double-yellow: two continuous lines separated by a small gap
+    const halfGap = LANE_MARKING.DOUBLE_LINE_GAP / 2 + LANE_MARKING.DASH_WIDTH / 2;
 
     if (orientation === 'horizontal') {
+      // Two solid lines offset in Z (across road)
       markings.push({
-        position: [center[0] + offset, 0.02, center[2]],
-        width: LANE_MARKING.DASH_LENGTH,
+        position: [center[0], 0.02, center[2] - halfGap],
+        width: length,
         length: LANE_MARKING.DASH_WIDTH,
+        color,
+        solid: true,
+      });
+      markings.push({
+        position: [center[0], 0.02, center[2] + halfGap],
+        width: length,
+        length: LANE_MARKING.DASH_WIDTH,
+        color,
+        solid: true,
       });
     } else {
+      // Two solid lines offset in X (across road)
       markings.push({
-        position: [center[0], 0.02, center[2] + offset],
+        position: [center[0] - halfGap, 0.02, center[2]],
         width: LANE_MARKING.DASH_WIDTH,
-        length: LANE_MARKING.DASH_LENGTH,
+        length: length,
+        color,
+        solid: true,
       });
+      markings.push({
+        position: [center[0] + halfGap, 0.02, center[2]],
+        width: LANE_MARKING.DASH_WIDTH,
+        length: length,
+        color,
+        solid: true,
+      });
+    }
+  } else {
+    // Dashed center line (existing behavior)
+    const dashCount = Math.floor(length / (LANE_MARKING.DASH_LENGTH + LANE_MARKING.DASH_GAP));
+    const totalDashSpan = dashCount * (LANE_MARKING.DASH_LENGTH + LANE_MARKING.DASH_GAP);
+    const startOffset = -totalDashSpan / 2 + LANE_MARKING.DASH_LENGTH / 2;
+
+    for (let i = 0; i < dashCount; i++) {
+      const offset = startOffset + i * (LANE_MARKING.DASH_LENGTH + LANE_MARKING.DASH_GAP);
+
+      if (orientation === 'horizontal') {
+        markings.push({
+          position: [center[0] + offset, 0.02, center[2]],
+          width: LANE_MARKING.DASH_LENGTH,
+          length: LANE_MARKING.DASH_WIDTH,
+          color,
+        });
+      } else {
+        markings.push({
+          position: [center[0], 0.02, center[2] + offset],
+          width: LANE_MARKING.DASH_WIDTH,
+          length: LANE_MARKING.DASH_LENGTH,
+          color,
+        });
+      }
     }
   }
 
@@ -199,7 +267,8 @@ export function generateRoads() {
     for (let c = 0; c < roadCount - 1; c++) {
       const seg = getRoadSegmentData(r, c, 'horizontal');
       segments.push(seg);
-      laneMarkings.push(...generateLaneMarkings(seg));
+      const solid = isNoPassingSegment(r, c, 'horizontal');
+      laneMarkings.push(...generateLaneMarkings(seg, solid));
       sidewalks.push(...generateSidewalks(seg));
     }
   }
@@ -209,7 +278,8 @@ export function generateRoads() {
     for (let r = 0; r < roadCount - 1; r++) {
       const seg = getRoadSegmentData(r, c, 'vertical');
       segments.push(seg);
-      laneMarkings.push(...generateLaneMarkings(seg));
+      const solid = isNoPassingSegment(r, c, 'vertical');
+      laneMarkings.push(...generateLaneMarkings(seg, solid));
       sidewalks.push(...generateSidewalks(seg));
     }
   }

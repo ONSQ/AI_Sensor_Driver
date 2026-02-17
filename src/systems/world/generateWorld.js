@@ -13,8 +13,9 @@ import { generateProps } from './generateProps.js';
 
 // Zone types that get colored road edge lines
 const ZONE_LINE_COLORS = {
-  [ZONE_TYPES.SCHOOL]: COLORS.SCHOOL_ACCENT,      // yellow
-  [ZONE_TYPES.HOSPITAL]: COLORS.HOSPITAL_ACCENT,   // red
+  [ZONE_TYPES.SCHOOL]: COLORS.SCHOOL_ACCENT,           // yellow
+  [ZONE_TYPES.HOSPITAL]: COLORS.HOSPITAL_ACCENT,       // red
+  [ZONE_TYPES.CONSTRUCTION]: COLORS.CONSTRUCTION_ACCENT, // orange
 };
 
 /**

@@ -92,4 +92,26 @@ export const PROP_COLORS = {
   SCHOOL_SIGN: '#ffcc00',
   HOSPITAL_CROSS: '#ff0000',
   SIGN_POLE: '#888888',
+  SPEED_SIGN_BG: '#ffffff',
+  SPEED_SIGN_BORDER: '#333333',
+  SPEED_SIGN_TEXT: '#111111',
+};
+
+// Speed limits per zone (mph) — US traffic law
+export const SPEED_LIMITS = {
+  city: 35,
+  residential: 25,
+  school: 20,
+  hospital: 15,
+  construction: 25,
+};
+
+// Speed limit sign dimensions
+export const SPEED_SIGN_DIMS = {
+  POLE_RADIUS: 0.05,
+  POLE_HEIGHT: 2.5,
+  SIGN_WIDTH: 0.65,
+  SIGN_HEIGHT: 0.8,
+  SIGN_THICKNESS: 0.03,
+  BORDER_WIDTH: 0.04,       // black border inset
 };

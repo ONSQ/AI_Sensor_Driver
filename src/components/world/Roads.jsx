@@ -57,7 +57,7 @@ const Roads = memo(function Roads({ data }) {
         <Sidewalk key={`sw-${i}`} data={sw} />
       ))}
 
-      {/* Lane markings — dashed center lines */}
+      {/* Lane markings — dashed or solid double-yellow center lines */}
       {laneMarkings.map((mark, i) => (
         <mesh
           key={`lm-${i}`}
@@ -65,7 +65,7 @@ const Roads = memo(function Roads({ data }) {
           rotation={[-Math.PI / 2, 0, 0]}
         >
           <planeGeometry args={[mark.width, mark.length]} />
-          <meshStandardMaterial color={COLORS.ROAD_MARKING} />
+          <meshStandardMaterial color={mark.color || COLORS.ROAD_MARKING} />
         </mesh>
       ))}
 

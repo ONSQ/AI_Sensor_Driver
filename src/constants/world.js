@@ -69,6 +69,20 @@ export const LANE_MARKING = {
   DASH_LENGTH: 2,
   DASH_WIDTH: 0.15,
   DASH_GAP: 3,
+  DOUBLE_LINE_GAP: 0.2,    // gap between two solid yellow lines
+};
+
+// Zones that require solid double-yellow center lines (no-passing zones)
+export const NO_PASSING_ZONES = new Set([
+  ZONE_TYPES.SCHOOL,
+  ZONE_TYPES.HOSPITAL,
+  ZONE_TYPES.CONSTRUCTION,
+]);
+
+// Lane marking colors
+export const LANE_COLORS = {
+  CENTER_YELLOW: '#ccaa00',     // yellow center line (dashed or solid)
+  EDGE_WHITE: '#cccccc',        // white edge line (not used yet, future)
 };
 
 // Crosswalk dimensions — ladder/continental style
