@@ -25,14 +25,14 @@ function generateSpeedSigns(zone, bounds) {
   const signEdgeOffset = 1.5; // distance from block edge into the road area
 
   const positions = [
-    // North edge — facing southbound driver → sign on left side of road (driver's right)
+    // North edge — southbound driver (→+Z), right = -X → sign at west side of road
     { position: [minX - signEdgeOffset, 0, minZ + 8], rotation: Math.PI },
-    // South edge — facing northbound driver → sign on right side of road
+    // South edge — northbound driver (→-Z), right = +X → sign at east side of road
     { position: [maxX + signEdgeOffset, 0, maxZ - 8], rotation: 0 },
-    // West edge — facing eastbound driver → sign on right side of road
-    { position: [minX + 8, 0, maxZ + signEdgeOffset], rotation: Math.PI / 2 },
-    // East edge — facing westbound driver → sign on left side of road (driver's right)
-    { position: [maxX - 8, 0, minZ - signEdgeOffset], rotation: -Math.PI / 2 },
+    // West edge — eastbound driver (→+X), right = -Z → sign at north side of road
+    { position: [minX + 8, 0, minZ - signEdgeOffset], rotation: Math.PI / 2 },
+    // East edge — westbound driver (→-X), right = +Z → sign at south side of road
+    { position: [maxX - 8, 0, maxZ + signEdgeOffset], rotation: -Math.PI / 2 },
   ];
 
   for (const sp of positions) {
