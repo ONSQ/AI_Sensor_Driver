@@ -9,9 +9,25 @@ import { SPEED_LIMITS } from '../../constants/traffic.js';
 import { randRange, randBool } from '../../utils/random.js';
 
 /**
- * Generate speed limit signs at the 4 road-facing edges of a block.
- * Signs are placed on the right side of the road for approaching drivers.
- * Each edge gets one sign at a consistent offset from the block center.
+ * Generate speed limit signs on the 4 roads adjacent to a block.
+ *
+ * Each block is bordered by 4 road segments:
+ *   - North road (EW): runs along minZ edge, drivers go east (+X) or west (-X)
+ *   - South road (EW): runs along maxZ edge, drivers go east (+X) or west (-X)
+ *   - West road (NS):  runs along minX edge, drivers go south (+Z) or north (-Z)
+ *   - East road (NS):  runs along maxX edge, drivers go south (+Z) or north (-Z)
+ *
+ * For each road we place ONE sign for the driver approaching/entering the zone.
+ * The sign must be on the driver's RIGHT side of the road.
+ *
+ * Right-hand rule:
+ *   Facing +X (east):  right = +Z (south side)
+ *   Facing -X (west):  right = -Z (north side)
+ *   Facing +Z (south): right = -X (west side)
+ *   Facing -Z (north): right = +X (east side)
+ *
+ * Sign placement: on the road surface, offset from road center to driver's right,
+ * positioned BEFORE the block (so driver sees it as they approach).
  */
 function generateSpeedSigns(zone, bounds) {
   const speed = SPEED_LIMITS[zone];
@@ -20,19 +36,42 @@ function generateSpeedSigns(zone, bounds) {
   const { minX, maxX, minZ, maxZ } = bounds;
   const signs = [];
 
-  // Place speed limit signs at each road-facing edge, offset to the right
-  // for approaching traffic (consistent with US right-hand traffic)
-  const signEdgeOffset = 1.5; // distance from block edge into the road area
+  const rightOffset = 3.5;   // offset from road center to driver's right side
+
+  // Road centers are at block edges ± half road width
+  // Block edge positions: minX, maxX (west/east), minZ, maxZ (north/south)
+  // Road center for north road: z = minZ - GRID.ROAD_WIDTH/2 = minZ - 5
+  // But signs go on the sidewalk/edge area, so offset from block edge
 
   const positions = [
-    // North edge — southbound driver (→+Z), right = -X → sign at west side of road
-    { position: [minX - signEdgeOffset, 0, minZ + 8], rotation: Math.PI },
-    // South edge — northbound driver (→-Z), right = +X → sign at east side of road
-    { position: [maxX + signEdgeOffset, 0, maxZ - 8], rotation: 0 },
-    // West edge — eastbound driver (→+X), right = -Z → sign at north side of road
-    { position: [minX + 8, 0, minZ - signEdgeOffset], rotation: Math.PI / 2 },
-    // East edge — westbound driver (→-X), right = +Z → sign at south side of road
-    { position: [maxX - 8, 0, maxZ + signEdgeOffset], rotation: -Math.PI / 2 },
+    // North road (EW) — eastbound driver (→+X), right = +Z (south side of road)
+    // Sign before block: x = minX - 5 (west of block, on the road approaching)
+    // Right of driver: z = (minZ - 5) + rightOffset  (south side = toward block)
+    {
+      position: [minX - 5, 0, minZ - 5 + rightOffset],
+      rotation: -Math.PI / 2,  // faces +X (toward eastbound driver)
+    },
+    // South road (EW) — westbound driver (→-X), right = -Z (north side of road)
+    // Sign before block: x = maxX + 5 (east of block, on the road approaching)
+    // Right of driver: z = (maxZ + 5) - rightOffset  (north side = toward block)
+    {
+      position: [maxX + 5, 0, maxZ + 5 - rightOffset],
+      rotation: Math.PI / 2,   // faces -X (toward westbound driver)
+    },
+    // West road (NS) — southbound driver (→+Z), right = -X (west side of road)
+    // Sign before block: z = minZ - 5 (north of block, on the road approaching)
+    // Right of driver: x = (minX - 5) - rightOffset  (west side = away from block)
+    {
+      position: [minX - 5 - rightOffset, 0, minZ - 5],
+      rotation: 0,             // faces +Z (toward southbound driver)
+    },
+    // East road (NS) — northbound driver (→-Z), right = +X (east side of road)
+    // Sign before block: z = maxZ + 5 (south of block, on the road approaching)
+    // Right of driver: x = (maxX + 5) + rightOffset  (east side = away from block)
+    {
+      position: [maxX + 5 + rightOffset, 0, maxZ + 5],
+      rotation: Math.PI,       // faces -Z (toward northbound driver)
+    },
   ];
 
   for (const sp of positions) {
