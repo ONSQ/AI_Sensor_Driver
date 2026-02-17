@@ -8,6 +8,8 @@ import { ZONE_MAP, GRID } from '../../constants/world.js';
 import { getBlockCenter, getBlockBounds } from '../../utils/blockLayout.js';
 import { generateBuildings } from './generateBuildings.js';
 import { generateRoads } from './generateRoads.js';
+import { generateTrafficLights, generateStopSigns } from './generateTrafficInfra.js';
+import { generateProps } from './generateProps.js';
 
 /**
  * Generate the complete world from a seed.
@@ -35,6 +37,7 @@ export function generateWorld(seed) {
       const rng = createRng(blockSeed);
 
       const buildings = generateBuildings(zone, bounds, rng);
+      const props = generateProps(zone, bounds, center, rng);
 
       blocks.push({
         row,
@@ -43,7 +46,7 @@ export function generateWorld(seed) {
         center,
         bounds,
         buildings,
-        props: [], // future: zone-specific props (cones, signs, etc.)
+        props,
       });
     }
   }
@@ -51,5 +54,9 @@ export function generateWorld(seed) {
   // Roads are deterministic (no randomization needed)
   const roads = generateRoads();
 
-  return { seed, blocks, roads };
+  // Traffic infrastructure placed at intersections
+  const trafficLights = generateTrafficLights(roads.intersections);
+  const stopSigns = generateStopSigns(roads.intersections);
+
+  return { seed, blocks, roads, trafficLights, stopSigns };
 }
