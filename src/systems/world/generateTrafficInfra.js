@@ -96,50 +96,48 @@ export function generateTrafficLights(intersections) {
 }
 
 /**
- * Stop sign placement — NEAR-RIGHT from driver's perspective.
+ * Stop sign placement — one per corner, at the driver's near side.
  *
  * Hard rule: the driver stops AT the stop sign. The sign is on the
- * driver's right side, at the near edge of the intersection.
+ * driver's right, at the near edge of the intersection.
  *
- * Each sign sits on the EDGE of the intersection (not a diagonal corner),
- * shifted to the driver's right side. This keeps each sign at a unique
- * position even when two approaches share the same geometric corner.
+ * To guarantee one sign per corner (no doubling), NS approaches use
+ * their near-right corner, and EW approaches use their near-left
+ * corner. This gives all 4 unique corners:
  *
- *   north (→+Z): near edge = north (-Z), right = west (-X)
- *     Sign on north edge, shifted west: [ix - right, 0, iz - edge]
+ *   north (→+Z): near=-Z, right=-X → NW corner [-1,-1]
+ *   south (→-Z): near=+Z, right=+X → SE corner [+1,+1]
+ *   east  (→-X): near=+X, left=-Z  → NE corner [+1,-1]
+ *   west  (→+X): near=-X, left=+Z  → SW corner [-1,+1]
  *
- *   south (→-Z): near edge = south (+Z), right = east (+X)
- *     Sign on south edge, shifted east: [ix + right, 0, iz + edge]
- *
- *   east (→-X): near edge = east (+X), right = south (+Z)
- *     Sign on east edge, shifted south: [ix + edge, 0, iz + right]
- *
- *   west (→+X): near edge = west (-X), right = north (-Z)
- *     Sign on west edge, shifted north: [ix - edge, 0, iz - right]
+ * All 4 corners unique: NW, SE, NE, SW ✓
+ * NS signs on driver's right ✓
+ * EW signs on the opposite side (left) to avoid collision ✓
+ * All signs on the near edge — driver stops AT the sign ✓
  */
-const STOP_APPROACHES = [
+const STOP_CORNERS = [
   {
     id: 'north',
-    getPos: (ix, iz, edge, right) => [ix - right, 0, iz - edge],
-    facingAngle: Math.PI,
+    corner: [-1, 0, -1],      // NW — near-right for southbound
+    facingAngle: Math.PI,      // faces -Z (north, toward driver)
     checkBoundary: (row, _col, _max) => row > 0,
   },
   {
     id: 'south',
-    getPos: (ix, iz, edge, right) => [ix + right, 0, iz + edge],
-    facingAngle: 0,
+    corner: [1, 0, 1],        // SE — near-right for northbound
+    facingAngle: 0,            // faces +Z (south, toward driver)
     checkBoundary: (row, _col, max) => row < max,
   },
   {
     id: 'east',
-    getPos: (ix, iz, edge, right) => [ix + edge, 0, iz + right],
-    facingAngle: -Math.PI / 2,
+    corner: [1, 0, -1],       // NE — near-left for westbound
+    facingAngle: -Math.PI / 2, // faces +X (east, toward driver)
     checkBoundary: (_row, col, max) => col < max,
   },
   {
     id: 'west',
-    getPos: (ix, iz, edge, right) => [ix - edge, 0, iz - right],
-    facingAngle: Math.PI / 2,
+    corner: [-1, 0, 1],       // SW — near-left for eastbound
+    facingAngle: Math.PI / 2,  // faces -X (west, toward driver)
     checkBoundary: (_row, col, _max) => col > 0,
   },
 ];
@@ -153,8 +151,7 @@ const STOP_APPROACHES = [
  */
 export function generateStopSigns(intersections) {
   const signs = [];
-  const edgeOffset = GRID.ROAD_WIDTH / 2;  // 5m — at the intersection edge
-  const rightOffset = 4;                     // 4m right of road center (sidewalk)
+  const cornerOffset = TRAFFIC_LIGHT_DIMS.CORNER_OFFSET; // 3.5m from center
   const roadCount = GRID.BLOCKS_PER_SIDE + 1;
   const maxIdx = roadCount - 1;
 
@@ -166,14 +163,18 @@ export function generateStopSigns(intersections) {
     const iRow = parseInt(parts[1]);
     const iCol = parseInt(parts[2]);
 
-    for (const sa of STOP_APPROACHES) {
-      if (!sa.checkBoundary(iRow, iCol, maxIdx)) continue;
+    for (const sc of STOP_CORNERS) {
+      if (!sc.checkBoundary(iRow, iCol, maxIdx)) continue;
 
       signs.push({
-        id: `stop-${inter.id}-${sa.id}`,
+        id: `stop-${inter.id}-${sc.id}`,
         intersectionId: inter.id,
-        position: sa.getPos(ix, iz, edgeOffset, rightOffset),
-        rotation: sa.facingAngle,
+        position: [
+          ix + sc.corner[0] * cornerOffset,
+          0,
+          iz + sc.corner[2] * cornerOffset,
+        ],
+        rotation: sc.facingAngle,
       });
     }
   }
