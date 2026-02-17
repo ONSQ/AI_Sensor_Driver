@@ -8,70 +8,81 @@ import { GRID } from '../../constants/world.js';
 import { TRAFFIC_LIGHT_DIMS } from '../../constants/traffic.js';
 
 /**
- * 4 approach directions for an intersection.
- * Each defines where to place the pole relative to intersection center,
- * and what rotation the light/sign should face.
- *
- * Poles are placed at the far-right corner of their approach
- * (like real traffic lights — on the right side of the road you're driving on).
- */
-/**
- * Right-hand traffic (US-style) signal placement.
- *
- * Each approach gets a signal on the RIGHT side of its lane, placed
- * just BEFORE the intersection (near edge). To avoid overlapping
- * corners, each approach's pole is positioned on the right side of
- * the road but offset along the approach direction to a unique spot.
- *
- * The signal faces the approaching driver (perpendicular to travel).
+ * Traffic light placement — right side of road, unique corners.
  *
  * Coordinate system (bird's eye, Y-up):
- *   +X = East,  -X = West
- *   +Z = South, -Z = North
+ *   +X = East, -X = West, +Z = South, -Z = North
  *
- *          -Z (North)
- *              |
- *    NW(-X,-Z)     NE(+X,-Z)
- *              |
- *    -X ----[INTER]---- +X
- *              |
- *    SW(-X,+Z)     SE(+X,+Z)
- *              |
- *          +Z (South)
+ *   Three.js Y-rotation: 0=faces+Z, π=faces-Z, -π/2=faces+X, π/2=faces-X
  *
- * Three.js Y-rotation: 0=faces+Z, π=faces-Z, -π/2=faces+X, π/2=faces-X
+ *           NW(-X,-Z)      NE(+X,-Z)
+ *                  ┌────────┐
+ *                  │  INTER │
+ *                  └────────┘
+ *           SW(-X,+Z)      SE(+X,+Z)
+ */
+/**
+ * Right-hand traffic light placement (US-style, on the right curb).
+ *
+ * Right-hand rule:  facing direction → right side
+ *   +Z (south) → -X    -Z (north) → +X
+ *   -X (west)  → +Z    +X (east)  → -Z
+ *
+ * To get 4 unique corners we place each light on the driver's right side
+ * at the FAR edge (across the intersection), which gives each approach a
+ * unique corner while still being on the correct side of the road:
+ *
+ *   north (→+Z): right=-X, far=+Z  → SW corner [-1, +1]
+ *   south (→-Z): right=+X, far=-Z  → NE corner [+1, -1]
+ *   east  (→-X): right=+Z, far=-X  → NW corner [-1, +1]... conflicts!
+ *
+ * Far-right also collides, so we use NEAR-right which gives unique corners
+ * when we split the "right" and "near" axes differently per approach:
+ *
+ *   north (→+Z): right-curb=-X, near-edge=-Z → pole at (-X, -Z) = NW
+ *   south (→-Z): right-curb=+X, near-edge=+Z → pole at (+X, +Z) = SE
+ *   east  (→-X): right-curb=+Z, near-edge=+X → pole at (+X, +Z) = SE... still conflicts!
+ *
+ * There is no way to place 4 lights at unique corners using strictly
+ * near-right placement. Instead we use the SAME SIDE (right) but alternate
+ * near/far edge per pair to guarantee uniqueness:
+ *
+ *   north (→+Z): right=-X, NEAR edge=-Z → NW corner  [-1, -1]
+ *   south (→-Z): right=+X, NEAR edge=+Z → SE corner  [+1, +1]
+ *   east  (→-X): right=+Z, FAR  edge=-X → SW corner  [-1, +1]
+ *   west  (→+X): right=-Z, FAR  edge=+X → NE corner  [+1, -1]
+ *
+ * All 4 corners are unique: NW, SE, SW, NE ✓
+ * All signals are on the driver's right side of the road ✓
+ * NS signals at near edge, EW signals at far edge (across intersection).
  */
 const APPROACHES = [
   {
     id: 'north',
     axis: 'ns',
-    // Driver from north, driving south (+Z). Right = +X, near = -Z.
-    // Pole at NE corner. Faces north (toward driver).
-    poleOffset: [1, 0, -1],
+    // Driving south (+Z). Right = -X. NEAR edge = -Z.  → NW corner.
+    poleOffset: [-1, 0, -1],
     facingAngle: Math.PI,
   },
   {
     id: 'south',
     axis: 'ns',
-    // Driver from south, driving north (-Z). Right = -X, near = +Z.
-    // Pole at SW corner. Faces south (toward driver).
-    poleOffset: [-1, 0, 1],
+    // Driving north (-Z). Right = +X. NEAR edge = +Z.  → SE corner.
+    poleOffset: [1, 0, 1],
     facingAngle: 0,
   },
   {
     id: 'east',
     axis: 'ew',
-    // Driver from east, driving west (-X). Right = -Z, far = -X.
-    // Pole at NW corner (far-right). Faces east (toward driver).
-    poleOffset: [-1, 0, -1],
+    // Driving west (-X). Right = +Z. FAR edge = -X.    → SW corner.
+    poleOffset: [-1, 0, 1],
     facingAngle: -Math.PI / 2,
   },
   {
     id: 'west',
     axis: 'ew',
-    // Driver from west, driving east (+X). Right = +Z, far = +X.
-    // Pole at SE corner (far-right). Faces west (toward driver).
-    poleOffset: [1, 0, 1],
+    // Driving east (+X). Right = -Z. FAR edge = +X.    → NE corner.
+    poleOffset: [1, 0, -1],
     facingAngle: Math.PI / 2,
   },
 ];
@@ -116,47 +127,57 @@ export function generateTrafficLights(intersections) {
  * at the NEAR edge of the intersection (just before the driver enters).
  * The sign faces the approaching driver.
  *
+ * Right-hand rule for facing direction → right side:
+ *   Facing +Z (south) → right = -X
+ *   Facing -Z (north) → right = +X
+ *   Facing -X (west)  → right = +Z
+ *   Facing +X (east)  → right = -Z
+ *
  * Coordinate system (bird's eye, Y-up):
  *   +X = East,  -X = West,  +Z = South,  -Z = North
  *
- *   Driver from north (→ south +Z): right = +X, near edge = -Z
- *     Sign at [ix + right, 0, iz - halfRoad]  faces Math.PI (-Z toward driver)
+ *   Driver from north (→ south +Z): right = -X, near edge = -Z
+ *     Sign at [ix - right, 0, iz - halfRoad]  faces Math.PI (toward -Z)
  *
- *   Driver from south (→ north -Z): right = -X, near edge = +Z
- *     Sign at [ix - right, 0, iz + halfRoad]  faces 0 (+Z toward driver)
+ *   Driver from south (→ north -Z): right = +X, near edge = +Z
+ *     Sign at [ix + right, 0, iz + halfRoad]  faces 0 (toward +Z)
  *
- *   Driver from east (→ west -X): right = -Z, near edge = +X
- *     Sign at [ix + halfRoad, 0, iz - right]  faces -π/2 (+X toward driver)
+ *   Driver from east (→ west -X): right = +Z, near edge = +X
+ *     Sign at [ix + halfRoad, 0, iz + right]  faces -π/2 (toward +X)
  *
- *   Driver from west (→ east +X): right = +Z, near edge = -X
- *     Sign at [ix - halfRoad, 0, iz + right]  faces π/2 (-X toward driver)
+ *   Driver from west (→ east +X): right = -Z, near edge = -X
+ *     Sign at [ix - halfRoad, 0, iz - right]  faces π/2 (toward -X)
  */
 const STOP_APPROACHES = [
   {
     id: 'north',
-    // Driver from north → south. Right = +X, near edge = iz - halfRoad
-    getPos: (ix, iz, halfRoad, right) => [ix + right, 0, iz - halfRoad],
+    // Driver from north → traveling south (+Z). Facing +Z → right = -X.
+    // Right lane = -X half. Sign on right = ix - right, near edge = iz - halfRoad.
+    getPos: (ix, iz, halfRoad, right) => [ix - right, 0, iz - halfRoad],
     facingAngle: Math.PI,
     checkBoundary: (row, _col, _max) => row > 0,
   },
   {
     id: 'south',
-    // Driver from south → north. Right = -X, near edge = iz + halfRoad
-    getPos: (ix, iz, halfRoad, right) => [ix - right, 0, iz + halfRoad],
+    // Driver from south → traveling north (-Z). Facing -Z → right = +X.
+    // Right lane = +X half. Sign on right = ix + right, near edge = iz + halfRoad.
+    getPos: (ix, iz, halfRoad, right) => [ix + right, 0, iz + halfRoad],
     facingAngle: 0,
     checkBoundary: (row, _col, max) => row < max,
   },
   {
     id: 'east',
-    // Driver from east → west. Right = -Z, near edge = ix + halfRoad
-    getPos: (ix, iz, halfRoad, right) => [ix + halfRoad, 0, iz - right],
+    // Driver from east → traveling west (-X). Facing -X → right = +Z.
+    // Right lane = +Z half. Sign on right = iz + right, near edge = ix + halfRoad.
+    getPos: (ix, iz, halfRoad, right) => [ix + halfRoad, 0, iz + right],
     facingAngle: -Math.PI / 2,
     checkBoundary: (_row, col, max) => col < max,
   },
   {
     id: 'west',
-    // Driver from west → east. Right = +Z, near edge = ix - halfRoad
-    getPos: (ix, iz, halfRoad, right) => [ix - halfRoad, 0, iz + right],
+    // Driver from west → traveling east (+X). Facing +X → right = -Z.
+    // Right lane = -Z half. Sign on right = iz - right, near edge = ix - halfRoad.
+    getPos: (ix, iz, halfRoad, right) => [ix - halfRoad, 0, iz - right],
     facingAngle: Math.PI / 2,
     checkBoundary: (_row, col, _max) => col > 0,
   },
