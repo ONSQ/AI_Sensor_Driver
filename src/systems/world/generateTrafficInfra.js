@@ -8,62 +8,57 @@ import { GRID } from '../../constants/world.js';
 import { TRAFFIC_LIGHT_DIMS } from '../../constants/traffic.js';
 
 /**
- * Traffic light placement — FAR-RIGHT from driver's perspective.
+ * Traffic light placement — one signal per corner, facing diagonally.
  *
- * US-style: the driver looks ACROSS the intersection to see the signal
- * on the far side, on the RIGHT side of the road.
- *
- * Right-hand rule (facing direction → right side):
- *   +Z (south) → -X    -Z (north) → +X
- *   -X (west)  → +Z    +X (east)  → -Z
+ * US-style 4-way signalized intersection: one signal pole stands at
+ * each of the 4 corners. Each signal faces the approach that is
+ * diagonally across the intersection from it.
  *
  * Coordinate system (bird's eye, Y-up):
  *   +X = East, -X = West, +Z = South, -Z = North
  *   Three.js Y-rotation: 0=faces+Z, π=faces-Z, -π/2=faces+X, π/2=faces-X
  *
- * Each approach's signal position:
- *   north (→+Z): right=-X, FAR edge=+Z → pole at [ix - right, iz + far]
- *   south (→-Z): right=+X, FAR edge=-Z → pole at [ix + right, iz - far]
- *   east  (→-X): right=+Z, FAR edge=-X → pole at [ix - far,   iz + right]
- *   west  (→+X): right=-Z, FAR edge=+X → pole at [ix + far,   iz - right]
+ *   NW corner [-X,-Z]: faces +Z (south) → serves NORTH approach (southbound driver)
+ *   NE corner [+X,-Z]: faces +Z (south) → (not used separately; shares with south)
  *
- * The right offset and far offset use different values to ensure all
- * 4 poles get unique positions (no two at the same spot).
- *   rightOffset = 4m  (on the sidewalk, right side of driver's lane)
- *   farOffset   = 5m  (at the far edge of the intersection)
+ * Corner-to-approach mapping (diagonally across):
+ *   SW corner [-X, +Z] → faces north (-Z, π)    → serves NORTH approach (southbound)
+ *   NE corner [+X, -Z] → faces south (+Z, 0)    → serves SOUTH approach (northbound)
+ *   SE corner [+X, +Z] → faces west  (-X, π/2)  → serves EAST  approach (westbound)
+ *   NW corner [-X, -Z] → faces east  (+X, -π/2) → serves WEST  approach (eastbound)
+ *
+ * All 4 corners are unique ✓
+ * Each signal faces toward the approaching driver from the far side ✓
+ * Matches real-world US intersection layout with signal at each corner ✓
  */
-const LIGHT_APPROACHES = [
+const LIGHT_CORNERS = [
   {
     id: 'north',
     axis: 'ns',
-    // Driving south (+Z). Right = -X. Far edge = +Z.
-    // Signal across intersection, on the right → SW area.
-    getPos: (ix, iz, far, right) => [ix - right, 0, iz + far],
-    facingAngle: Math.PI, // faces -Z (toward driver from north)
+    // Southbound driver looks across to far-right → SW corner
+    corner: [-1, 0, 1],    // SW
+    facingAngle: Math.PI,   // faces -Z (north, toward the driver)
   },
   {
     id: 'south',
     axis: 'ns',
-    // Driving north (-Z). Right = +X. Far edge = -Z.
-    // Signal across intersection, on the right → NE area.
-    getPos: (ix, iz, far, right) => [ix + right, 0, iz - far],
-    facingAngle: 0, // faces +Z (toward driver from south)
+    // Northbound driver looks across to far-right → NE corner
+    corner: [1, 0, -1],    // NE
+    facingAngle: 0,         // faces +Z (south, toward the driver)
   },
   {
     id: 'east',
     axis: 'ew',
-    // Driving west (-X). Right = +Z. Far edge = -X.
-    // Signal across intersection, on the right → SW area.
-    getPos: (ix, iz, far, right) => [ix - far, 0, iz + right],
-    facingAngle: -Math.PI / 2, // faces +X (toward driver from east)
+    // Westbound driver looks across to far-right → SE corner
+    corner: [1, 0, 1],     // SE
+    facingAngle: -Math.PI / 2, // faces +X (east, toward the driver)
   },
   {
     id: 'west',
     axis: 'ew',
-    // Driving east (+X). Right = -Z. Far edge = +X.
-    // Signal across intersection, on the right → NE area.
-    getPos: (ix, iz, far, right) => [ix + far, 0, iz - right],
-    facingAngle: Math.PI / 2, // faces -X (toward driver from west)
+    // Eastbound driver looks across to far-right → NW corner
+    corner: [-1, 0, -1],   // NW
+    facingAngle: Math.PI / 2,  // faces -X (west, toward the driver)
   },
 ];
 
@@ -74,22 +69,25 @@ const LIGHT_APPROACHES = [
  */
 export function generateTrafficLights(intersections) {
   const lights = [];
-  const halfRoad = GRID.ROAD_WIDTH / 2;  // 5m — at the intersection edge
-  const rightOffset = 4;                   // right side of road (on sidewalk)
+  const cornerOffset = TRAFFIC_LIGHT_DIMS.CORNER_OFFSET; // 3.5m from center
 
   for (const inter of intersections) {
     if (!inter.hasTrafficLight) continue;
 
     const [ix, , iz] = inter.position;
 
-    for (const approach of LIGHT_APPROACHES) {
+    for (const lc of LIGHT_CORNERS) {
       lights.push({
-        id: `light-${inter.id}-${approach.id}`,
+        id: `light-${inter.id}-${lc.id}`,
         intersectionId: inter.id,
-        direction: approach.id,
-        axis: approach.axis,
-        position: approach.getPos(ix, iz, halfRoad, rightOffset),
-        rotation: approach.facingAngle,
+        direction: lc.id,
+        axis: lc.axis,
+        position: [
+          ix + lc.corner[0] * cornerOffset,
+          0,
+          iz + lc.corner[2] * cornerOffset,
+        ],
+        rotation: lc.facingAngle,
       });
     }
   }
