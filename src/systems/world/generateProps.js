@@ -36,40 +36,39 @@ function generateSpeedSigns(zone, bounds) {
   const { minX, maxX, minZ, maxZ } = bounds;
   const signs = [];
 
-  const rightOffset = 3.5;   // offset from road center to driver's right side
-
-  // Road centers are at block edges ± half road width
-  // Block edge positions: minX, maxX (west/east), minZ, maxZ (north/south)
-  // Road center for north road: z = minZ - GRID.ROAD_WIDTH/2 = minZ - 5
-  // But signs go on the sidewalk/edge area, so offset from block edge
+  // Road layout: 10m wide total — | 2m sidewalk | 3m lane | 3m lane | 2m sidewalk |
+  // Road center is at block edge ± ROAD_WIDTH/2 (±5m from block edge)
+  // Sidewalk center on driver's right = road center ± 4m (inside the sidewalk strip)
+  const halfRoad = GRID.ROAD_WIDTH / 2;            // 5
+  const sidewalkOffset = halfRoad - 1;              // 4m from road center = sidewalk center
 
   const positions = [
-    // North road (EW) — eastbound driver (→+X), right = +Z (south side of road)
-    // Sign before block: x = minX - 5 (west of block, on the road approaching)
-    // Right of driver: z = (minZ - 5) + rightOffset  (south side = toward block)
+    // North road (EW) — eastbound driver (→+X), right = +Z (south sidewalk)
+    // Road center Z: minZ - halfRoad. South sidewalk: + sidewalkOffset
+    // Sign X before block: minX - 5 (just west of block)
     {
-      position: [minX - 5, 0, minZ - 5 + rightOffset],
+      position: [minX - 5, 0, minZ - halfRoad + sidewalkOffset],
       rotation: -Math.PI / 2,  // faces +X (toward eastbound driver)
     },
-    // South road (EW) — westbound driver (→-X), right = -Z (north side of road)
-    // Sign before block: x = maxX + 5 (east of block, on the road approaching)
-    // Right of driver: z = (maxZ + 5) - rightOffset  (north side = toward block)
+    // South road (EW) — westbound driver (→-X), right = -Z (north sidewalk)
+    // Road center Z: maxZ + halfRoad. North sidewalk: - sidewalkOffset
+    // Sign X before block: maxX + 5 (just east of block)
     {
-      position: [maxX + 5, 0, maxZ + 5 - rightOffset],
+      position: [maxX + 5, 0, maxZ + halfRoad - sidewalkOffset],
       rotation: Math.PI / 2,   // faces -X (toward westbound driver)
     },
-    // West road (NS) — southbound driver (→+Z), right = -X (west side of road)
-    // Sign before block: z = minZ - 5 (north of block, on the road approaching)
-    // Right of driver: x = (minX - 5) - rightOffset  (west side = away from block)
+    // West road (NS) — southbound driver (→+Z), right = -X (west sidewalk)
+    // Road center X: minX - halfRoad. West sidewalk: - sidewalkOffset
+    // Sign Z before block: minZ - 5 (just north of block)
     {
-      position: [minX - 5 - rightOffset, 0, minZ - 5],
+      position: [minX - halfRoad - sidewalkOffset, 0, minZ - 5],
       rotation: 0,             // faces +Z (toward southbound driver)
     },
-    // East road (NS) — northbound driver (→-Z), right = +X (east side of road)
-    // Sign before block: z = maxZ + 5 (south of block, on the road approaching)
-    // Right of driver: x = (maxX + 5) + rightOffset  (east side = away from block)
+    // East road (NS) — northbound driver (→-Z), right = +X (east sidewalk)
+    // Road center X: maxX + halfRoad. East sidewalk: + sidewalkOffset
+    // Sign Z before block: maxZ + 5 (just south of block)
     {
-      position: [maxX + 5 + rightOffset, 0, maxZ + 5],
+      position: [maxX + halfRoad + sidewalkOffset, 0, maxZ + 5],
       rotation: Math.PI,       // faces -Z (toward northbound driver)
     },
   ];
