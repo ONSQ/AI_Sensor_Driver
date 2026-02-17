@@ -114,7 +114,7 @@ function SpeedLimitSign({ position, rotation }) {
       </mesh>
       {/* Sign face — white rectangle with black border (border = slightly larger box behind) */}
       <mesh
-        position={[0, SD.POLE_HEIGHT + SD.SIGN_HEIGHT / 2, -0.005]}
+        position={[0, SD.POLE_HEIGHT + SD.SIGN_HEIGHT / 2, 0.005]}
         castShadow
       >
         <boxGeometry args={[SD.SIGN_WIDTH + SD.BORDER_WIDTH * 2, SD.SIGN_HEIGHT + SD.BORDER_WIDTH * 2, SD.SIGN_THICKNESS]} />
@@ -127,16 +127,18 @@ function SpeedLimitSign({ position, rotation }) {
         <boxGeometry args={[SD.SIGN_WIDTH, SD.SIGN_HEIGHT, SD.SIGN_THICKNESS]} />
         <meshStandardMaterial color={C.SPEED_SIGN_BG} />
       </mesh>
-      {/* "SPEED LIMIT" text area — thin dark stripe near top */}
+      {/* "SPEED LIMIT" text area — thin dark stripe near top (faces -Z = toward driver) */}
       <mesh
-        position={[0, SD.POLE_HEIGHT + SD.SIGN_HEIGHT * 0.85, SD.SIGN_THICKNESS / 2 + 0.002]}
+        position={[0, SD.POLE_HEIGHT + SD.SIGN_HEIGHT * 0.85, -(SD.SIGN_THICKNESS / 2 + 0.002)]}
+        rotation={[0, Math.PI, 0]}
       >
         <planeGeometry args={[SD.SIGN_WIDTH * 0.7, SD.SIGN_HEIGHT * 0.12]} />
         <meshStandardMaterial color={C.SPEED_SIGN_TEXT} />
       </mesh>
-      {/* Number area — larger dark square in center */}
+      {/* Number area — larger dark square in center (faces -Z = toward driver) */}
       <mesh
-        position={[0, SD.POLE_HEIGHT + SD.SIGN_HEIGHT * 0.45, SD.SIGN_THICKNESS / 2 + 0.002]}
+        position={[0, SD.POLE_HEIGHT + SD.SIGN_HEIGHT * 0.45, -(SD.SIGN_THICKNESS / 2 + 0.002)]}
+        rotation={[0, Math.PI, 0]}
       >
         <planeGeometry args={[SD.SIGN_WIDTH * 0.5, SD.SIGN_HEIGHT * 0.4]} />
         <meshStandardMaterial color={C.SPEED_SIGN_TEXT} />
