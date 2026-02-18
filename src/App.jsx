@@ -1,12 +1,39 @@
-import { Canvas } from '@react-three/fiber';
+import { useRef } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { useControls } from 'leva';
 import CityWorld from './components/world/CityWorld.jsx';
 import useGameStore from './stores/useGameStore.js';
+import useVehicleStore from './stores/useVehicleStore.js';
 import FirstPersonCamera from './components/vehicle/FirstPersonCamera.jsx';
 import InputHandler from './components/vehicle/InputHandler.jsx';
 import CockpitHUD from './components/ui/CockpitHUD.jsx';
 import { CAMERA } from './constants/vehicle.js';
+
+/**
+ * OrbitControls that follows the vehicle position.
+ * Updates the controls target each frame so the camera orbits around the car.
+ */
+function VehicleOrbitControls() {
+  const controlsRef = useRef();
+
+  useFrame(() => {
+    if (!controlsRef.current) return;
+    const [x, , z] = useVehicleStore.getState().position;
+    controlsRef.current.target.set(x, 0, z);
+    controlsRef.current.update();
+  });
+
+  return (
+    <OrbitControls
+      ref={controlsRef}
+      makeDefault
+      maxPolarAngle={Math.PI / 2.1}
+      minDistance={10}
+      maxDistance={200}
+    />
+  );
+}
 
 export default function App() {
   const seed = useGameStore((s) => s.seed);
@@ -68,16 +95,8 @@ export default function App() {
         {/* First-person camera (takes over when active) */}
         <FirstPersonCamera enabled={isFirstPerson} />
 
-        {/* Orbit controls (only in orbit mode) */}
-        {!isFirstPerson && (
-          <OrbitControls
-            makeDefault
-            maxPolarAngle={Math.PI / 2.1}
-            minDistance={20}
-            maxDistance={350}
-            target={[0, 0, 0]}
-          />
-        )}
+        {/* Orbit controls — follows vehicle (only in orbit mode) */}
+        {!isFirstPerson && <VehicleOrbitControls />}
       </Canvas>
 
       {/* Keyboard input handler (always active) */}
