@@ -13,6 +13,7 @@ import useVehicleStore from '../../stores/useVehicleStore.js';
 import useGameStore from '../../stores/useGameStore.js';
 import { tickVehiclePhysics } from '../../systems/vehicle/vehiclePhysics.js';
 import { buildCollisionData, resolveCollisions } from '../../systems/vehicle/collisions.js';
+import { buildSensorTargets } from '../../systems/sensors/sensorTargets.js';
 import Ground from './Ground.jsx';
 import Roads from './Roads.jsx';
 import Block from './Block.jsx';
@@ -20,11 +21,13 @@ import TrafficLight from './TrafficLight.jsx';
 import StopSign from './StopSign.jsx';
 import ZoneProps from './ZoneProps.jsx';
 import WaypointMarker from './WaypointMarker.jsx';
+import SensorManager from '../sensors/SensorManager.jsx';
 import Vehicle from '../vehicle/Vehicle.jsx';
 
 export default function CityWorld({ seed = 12345, cameraMode = 'orbit' }) {
   const worldData = useMemo(() => generateWorld(seed), [seed]);
   const collisionData = useMemo(() => buildCollisionData(worldData), [worldData]);
+  const sensorTargets = useMemo(() => buildSensorTargets(worldData), [worldData]);
   const tickTraffic = useTrafficStore((s) => s.tick);
 
   // Generate waypoints once per seed
@@ -125,6 +128,9 @@ export default function CityWorld({ seed = 12345, cameraMode = 'orbit' }) {
           index={i}
         />
       ))}
+
+      {/* Sensor systems (LiDAR renders in scene; others use HTML overlays) */}
+      <SensorManager sensorTargets={sensorTargets} collisionData={collisionData} />
 
       {/* Player vehicle (visible in orbit + third-person, hidden in first-person) */}
       <Vehicle visible={cameraMode !== 'first-person'} />

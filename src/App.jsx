@@ -11,6 +11,11 @@ import RearviewMirror from './components/vehicle/RearviewMirror.jsx';
 import InputHandler from './components/vehicle/InputHandler.jsx';
 import CockpitHUD from './components/ui/CockpitHUD.jsx';
 import WaypointCompass from './components/ui/WaypointCompass.jsx';
+import ThermalPanel from './components/sensors/ThermalPanel.jsx';
+import AudioPanel from './components/sensors/AudioPanel.jsx';
+import CameraPanel from './components/sensors/CameraPanel.jsx';
+import SensorStatusBar from './components/sensors/SensorStatusBar.jsx';
+import useSensorStore from './stores/useSensorStore.js';
 import { CAMERA } from './constants/vehicle.js';
 
 /**
@@ -52,10 +57,23 @@ export default function App() {
     'Camera Mode': { options: ['orbit', 'third-person', 'first-person'], value: 'orbit' },
   });
 
+  // Sensor controls
+  const { 'LiDAR Rays': lidarRays, Weather: weather, 'Time of Day': timeOfDay } = useControls('Sensors', {
+    'LiDAR Rays': { options: [24, 48, 72], value: 48 },
+    'Weather': { options: ['clear', 'rain', 'fog'], value: 'clear' },
+    'Time of Day': { options: ['daylight', 'dusk', 'night'], value: 'daylight' },
+  });
+
   // Sync leva control to store
   if (debugSeed !== seed) {
     setSeed(debugSeed);
   }
+
+  // Sync sensor controls to store
+  const sensorState = useSensorStore.getState();
+  if (sensorState.sensors.lidar.rayCount !== lidarRays) sensorState.setLidarRayCount(lidarRays);
+  if (sensorState.weather !== weather) sensorState.setWeather(weather);
+  if (sensorState.timeOfDay !== timeOfDay) sensorState.setTimeOfDay(timeOfDay);
 
   const isFirstPerson = cameraMode === 'first-person';
   const isThirdPerson = cameraMode === 'third-person';
@@ -114,6 +132,12 @@ export default function App() {
 
       {/* Waypoint compass (first-person + third-person) */}
       <WaypointCompass visible={!isOrbit} />
+
+      {/* Sensor overlays (first-person + third-person) */}
+      <ThermalPanel visible={!isOrbit} />
+      <AudioPanel visible={!isOrbit} />
+      <CameraPanel visible={!isOrbit} />
+      <SensorStatusBar visible={!isOrbit} />
 
       {/* Debug HUD overlay */}
       <div style={{
