@@ -1,7 +1,7 @@
 // ============================================================
 // RearviewMirror — FBO-based rear-view mirror for cockpit
 // Renders the main scene from a backward-facing camera into a
-// texture, displayed on a plane fixed in the driver's view.
+// texture, displayed on a rounded-rect plane in the driver's view.
 // ============================================================
 
 import { useRef, useMemo } from 'react';
@@ -10,6 +10,29 @@ import { useFBO } from '@react-three/drei';
 import * as THREE from 'three';
 import useVehicleStore from '../../stores/useVehicleStore.js';
 import { VEHICLE_DIMS, MIRROR } from '../../constants/vehicle.js';
+
+/**
+ * Build a THREE.Shape for a rounded rectangle centered at origin.
+ */
+function roundedRectShape(w, h, r) {
+  const shape = new THREE.Shape();
+  const hw = w / 2;
+  const hh = h / 2;
+  // Clamp radius so it doesn't exceed half the smaller dimension
+  const cr = Math.min(r, hw, hh);
+
+  shape.moveTo(-hw + cr, -hh);
+  shape.lineTo(hw - cr, -hh);
+  shape.quadraticCurveTo(hw, -hh, hw, -hh + cr);
+  shape.lineTo(hw, hh - cr);
+  shape.quadraticCurveTo(hw, hh, hw - cr, hh);
+  shape.lineTo(-hw + cr, hh);
+  shape.quadraticCurveTo(-hw, hh, -hw, hh - cr);
+  shape.lineTo(-hw, -hh + cr);
+  shape.quadraticCurveTo(-hw, -hh, -hw + cr, -hh);
+
+  return shape;
+}
 
 export default function RearviewMirror({ enabled = true }) {
   const { gl, scene, camera: mainCamera } = useThree();
@@ -30,6 +53,32 @@ export default function RearviewMirror({ enabled = true }) {
       400,
     );
     return cam;
+  }, []);
+
+  // Pre-build rounded-rect geometries
+  const mirrorGeo = useMemo(() => {
+    const shape = roundedRectShape(MIRROR.WIDTH, MIRROR.HEIGHT, MIRROR.CORNER_RADIUS);
+    return new THREE.ShapeGeometry(shape);
+  }, []);
+
+  const frameGeo = useMemo(() => {
+    const pad = MIRROR.FRAME_PADDING;
+    const shape = roundedRectShape(
+      MIRROR.WIDTH + pad * 2,
+      MIRROR.HEIGHT + pad * 2,
+      MIRROR.CORNER_RADIUS + pad,
+    );
+    return new THREE.ShapeGeometry(shape);
+  }, []);
+
+  const borderGeo = useMemo(() => {
+    const pad = MIRROR.FRAME_PADDING;
+    const shape = roundedRectShape(
+      MIRROR.WIDTH + pad,
+      MIRROR.HEIGHT + pad,
+      MIRROR.CORNER_RADIUS + pad * 0.5,
+    );
+    return new THREE.EdgesGeometry(new THREE.ShapeGeometry(shape));
   }, []);
 
   const mirrorGroupRef = useRef();
@@ -95,30 +144,20 @@ export default function RearviewMirror({ enabled = true }) {
 
   if (!enabled) return null;
 
-  const pad = MIRROR.FRAME_PADDING;
-
   return (
     <group ref={mirrorGroupRef}>
-      {/* Dark frame background (slightly larger than mirror) */}
-      <mesh position={[0, 0, -0.001]}>
-        <planeGeometry args={[MIRROR.WIDTH + pad * 2, MIRROR.HEIGHT + pad * 2]} />
+      {/* Dark frame background (rounded, slightly larger than mirror) */}
+      <mesh geometry={frameGeo} position={[0, 0, -0.001]}>
         <meshBasicMaterial color="#0a0a1a" />
       </mesh>
 
       {/* Mirror surface — horizontally flipped for real mirror effect */}
-      <mesh scale={[-1, 1, 1]}>
-        <planeGeometry args={[MIRROR.WIDTH, MIRROR.HEIGHT]} />
+      <mesh geometry={mirrorGeo} scale={[-1, 1, 1]}>
         <meshBasicMaterial map={fbo.texture} toneMapped={false} />
       </mesh>
 
-      {/* Green border accent */}
-      <lineSegments>
-        <edgesGeometry
-          args={[new THREE.PlaneGeometry(
-            MIRROR.WIDTH + pad,
-            MIRROR.HEIGHT + pad,
-          )]}
-        />
+      {/* Green border accent (rounded) */}
+      <lineSegments geometry={borderGeo}>
         <lineBasicMaterial color={MIRROR.FRAME_COLOR} />
       </lineSegments>
     </group>
