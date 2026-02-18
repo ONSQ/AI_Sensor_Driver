@@ -3,6 +3,10 @@ import { OrbitControls } from '@react-three/drei';
 import { useControls } from 'leva';
 import CityWorld from './components/world/CityWorld.jsx';
 import useGameStore from './stores/useGameStore.js';
+import FirstPersonCamera from './components/vehicle/FirstPersonCamera.jsx';
+import InputHandler from './components/vehicle/InputHandler.jsx';
+import CockpitHUD from './components/ui/CockpitHUD.jsx';
+import { CAMERA } from './constants/vehicle.js';
 
 export default function App() {
   const seed = useGameStore((s) => s.seed);
@@ -13,15 +17,25 @@ export default function App() {
     Seed: { value: seed, min: 0, max: 99999, step: 1 },
   });
 
+  // Camera mode toggle
+  const { 'Camera Mode': cameraMode } = useControls('Camera', {
+    'Camera Mode': { options: ['orbit', 'first-person'], value: 'orbit' },
+  });
+
   // Sync leva control to store
   if (debugSeed !== seed) {
     setSeed(debugSeed);
   }
 
+  const isFirstPerson = cameraMode === 'first-person';
+
   return (
     <div style={{ width: '100vw', height: '100vh' }}>
       <Canvas
-        camera={{ position: [0, 150, 150], fov: 50 }}
+        camera={{
+          position: isFirstPerson ? [0, 1.5, 0] : [0, 150, 150],
+          fov: isFirstPerson ? CAMERA.FIRST_PERSON_FOV : CAMERA.ORBIT_FOV,
+        }}
         gl={{ antialias: true, alpha: false }}
         dpr={[1, 2]}
         shadows
@@ -48,20 +62,31 @@ export default function App() {
           intensity={0.2}
         />
 
-        {/* World */}
-        <CityWorld seed={debugSeed} />
+        {/* World + Vehicle */}
+        <CityWorld seed={debugSeed} cameraMode={cameraMode} />
 
-        {/* Camera controls */}
-        <OrbitControls
-          makeDefault
-          maxPolarAngle={Math.PI / 2.1}
-          minDistance={20}
-          maxDistance={350}
-          target={[0, 0, 0]}
-        />
+        {/* First-person camera (takes over when active) */}
+        <FirstPersonCamera enabled={isFirstPerson} />
+
+        {/* Orbit controls (only in orbit mode) */}
+        {!isFirstPerson && (
+          <OrbitControls
+            makeDefault
+            maxPolarAngle={Math.PI / 2.1}
+            minDistance={20}
+            maxDistance={350}
+            target={[0, 0, 0]}
+          />
+        )}
       </Canvas>
 
-      {/* HUD overlay */}
+      {/* Keyboard input handler (always active) */}
+      <InputHandler />
+
+      {/* Cockpit HUD (first-person only) */}
+      <CockpitHUD visible={isFirstPerson} />
+
+      {/* Debug HUD overlay */}
       <div style={{
         position: 'absolute',
         top: 20,
@@ -77,7 +102,7 @@ export default function App() {
       }}>
         <div style={{ fontWeight: 'bold', marginBottom: 4 }}>SENSORRACER v2</div>
         <div>Seed: {debugSeed}</div>
-        <div>Scroll to zoom | Drag to orbit</div>
+        <div>{isFirstPerson ? 'WASD to drive' : 'Scroll to zoom | Drag to orbit'}</div>
       </div>
     </div>
   );
