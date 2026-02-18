@@ -76,8 +76,8 @@ export default function CityWorld({ seed = 12345, cameraMode = 'orbit' }) {
         </mesh>
       ))}
 
-      {/* Player vehicle (visible in orbit mode, hidden in first-person) */}
-      <Vehicle visible={cameraMode === 'orbit'} />
+      {/* Player vehicle (visible in orbit + third-person, hidden in first-person) */}
+      <Vehicle visible={cameraMode !== 'first-person'} />
     </group>
   );
 }

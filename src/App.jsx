@@ -6,6 +6,7 @@ import CityWorld from './components/world/CityWorld.jsx';
 import useGameStore from './stores/useGameStore.js';
 import useVehicleStore from './stores/useVehicleStore.js';
 import FirstPersonCamera from './components/vehicle/FirstPersonCamera.jsx';
+import ThirdPersonCamera from './components/vehicle/ThirdPersonCamera.jsx';
 import InputHandler from './components/vehicle/InputHandler.jsx';
 import CockpitHUD from './components/ui/CockpitHUD.jsx';
 import { CAMERA } from './constants/vehicle.js';
@@ -46,7 +47,7 @@ export default function App() {
 
   // Camera mode toggle
   const { 'Camera Mode': cameraMode } = useControls('Camera', {
-    'Camera Mode': { options: ['orbit', 'first-person'], value: 'orbit' },
+    'Camera Mode': { options: ['orbit', 'third-person', 'first-person'], value: 'orbit' },
   });
 
   // Sync leva control to store
@@ -55,6 +56,8 @@ export default function App() {
   }
 
   const isFirstPerson = cameraMode === 'first-person';
+  const isThirdPerson = cameraMode === 'third-person';
+  const isOrbit = cameraMode === 'orbit';
 
   return (
     <div style={{ width: '100vw', height: '100vh' }}>
@@ -92,18 +95,17 @@ export default function App() {
         {/* World + Vehicle */}
         <CityWorld seed={debugSeed} cameraMode={cameraMode} />
 
-        {/* First-person camera (takes over when active) */}
+        {/* Camera controllers — only one active at a time */}
         <FirstPersonCamera enabled={isFirstPerson} />
-
-        {/* Orbit controls — follows vehicle (only in orbit mode) */}
-        {!isFirstPerson && <VehicleOrbitControls />}
+        <ThirdPersonCamera enabled={isThirdPerson} />
+        {isOrbit && <VehicleOrbitControls />}
       </Canvas>
 
       {/* Keyboard input handler (always active) */}
       <InputHandler />
 
-      {/* Cockpit HUD (first-person only) */}
-      <CockpitHUD visible={isFirstPerson} />
+      {/* Cockpit HUD (first-person + third-person) */}
+      <CockpitHUD visible={!isOrbit} />
 
       {/* Debug HUD overlay */}
       <div style={{
@@ -121,7 +123,7 @@ export default function App() {
       }}>
         <div style={{ fontWeight: 'bold', marginBottom: 4 }}>SENSORRACER v2</div>
         <div>Seed: {debugSeed}</div>
-        <div>{isFirstPerson ? 'WASD to drive' : 'Scroll to zoom | Drag to orbit'}</div>
+        <div>{isOrbit ? 'Scroll to zoom | Drag to orbit' : 'WASD to drive'}</div>
       </div>
     </div>
   );

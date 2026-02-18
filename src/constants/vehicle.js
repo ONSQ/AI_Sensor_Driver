@@ -70,6 +70,14 @@ export const VEHICLE_COLORS = {
 // Camera settings
 export const CAMERA = {
   FIRST_PERSON_FOV: 75,     // wider FOV for driving immersion
+  THIRD_PERSON_FOV: 60,     // moderate FOV for chase cam
   ORBIT_FOV: 50,            // existing orbit FOV
   LERP_FACTOR: 0.1,         // smooth camera interpolation (0–1, lower = smoother)
+
+  // Third-person chase camera offsets (relative to vehicle)
+  CHASE_DISTANCE: 12,       // meters behind the vehicle
+  CHASE_HEIGHT: 5,          // meters above ground
+  CHASE_LOOK_AHEAD: 8,      // meters ahead of vehicle to look at
+  CHASE_LOOK_HEIGHT: 1.5,   // height of the look-at target
+  CHASE_LERP: 0.06,         // smoother than first-person for cinematic feel
 };
