@@ -81,3 +81,18 @@ export const CAMERA = {
   CHASE_LOOK_HEIGHT: 1.5,   // height of the look-at target
   CHASE_LERP: 0.06,         // smoother than first-person for cinematic feel
 };
+
+// Rearview mirror settings (first-person cockpit)
+export const MIRROR = {
+  WIDTH: 0.4,              // mirror plane width (meters)
+  HEIGHT: 0.12,            // mirror plane height (widescreen ~3.3:1)
+  OFFSET_X: 0,             // centered horizontally in camera space
+  OFFSET_Y: 0.25,          // above camera center (top of windshield)
+  OFFSET_Z: -0.5,          // forward of camera (-Z = forward in camera space)
+  FBO_WIDTH: 512,          // texture resolution
+  FBO_HEIGHT: 256,
+  FRAME_SKIP: 2,           // render every 2nd frame for performance
+  FOV: 90,                 // wide rear FOV
+  FRAME_COLOR: '#00ff88',  // green accent matching HUD
+  FRAME_PADDING: 0.006,    // border thickness around mirror
+};

@@ -7,6 +7,7 @@ import useGameStore from './stores/useGameStore.js';
 import useVehicleStore from './stores/useVehicleStore.js';
 import FirstPersonCamera from './components/vehicle/FirstPersonCamera.jsx';
 import ThirdPersonCamera from './components/vehicle/ThirdPersonCamera.jsx';
+import RearviewMirror from './components/vehicle/RearviewMirror.jsx';
 import InputHandler from './components/vehicle/InputHandler.jsx';
 import CockpitHUD from './components/ui/CockpitHUD.jsx';
 import { CAMERA } from './constants/vehicle.js';
@@ -99,6 +100,9 @@ export default function App() {
         <FirstPersonCamera enabled={isFirstPerson} />
         <ThirdPersonCamera enabled={isThirdPerson} />
         {isOrbit && <VehicleOrbitControls />}
+
+        {/* Rearview mirror (first-person only) */}
+        <RearviewMirror enabled={isFirstPerson} />
       </Canvas>
 
       {/* Keyboard input handler (always active) */}
