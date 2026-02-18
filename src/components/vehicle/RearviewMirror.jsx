@@ -58,7 +58,20 @@ export default function RearviewMirror({ enabled = true }) {
   // Pre-build rounded-rect geometries
   const mirrorGeo = useMemo(() => {
     const shape = roundedRectShape(MIRROR.WIDTH, MIRROR.HEIGHT, MIRROR.CORNER_RADIUS);
-    return new THREE.ShapeGeometry(shape);
+    const geo = new THREE.ShapeGeometry(shape);
+
+    // Fix UVs: ShapeGeometry uses absolute coords, we need 0–1 range
+    // so the FBO texture maps correctly across the full surface.
+    const uv = geo.attributes.uv;
+    const hw = MIRROR.WIDTH / 2;
+    const hh = MIRROR.HEIGHT / 2;
+    for (let i = 0; i < uv.count; i++) {
+      uv.setX(i, (uv.getX(i) + hw) / MIRROR.WIDTH);
+      uv.setY(i, (uv.getY(i) + hh) / MIRROR.HEIGHT);
+    }
+    uv.needsUpdate = true;
+
+    return geo;
   }, []);
 
   const frameGeo = useMemo(() => {

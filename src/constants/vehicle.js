@@ -88,7 +88,7 @@ export const MIRROR = {
   HEIGHT: 0.09,            // mirror plane height — 75% of original
   CORNER_RADIUS: 0.015,    // rounded corner radius
   OFFSET_X: 0,             // centered horizontally in camera space
-  OFFSET_Y: 0.34,          // higher — near top of screen
+  OFFSET_Y: 0.30,          // near top of screen, slightly lower
   OFFSET_Z: -0.5,          // forward of camera (-Z = forward in camera space)
   FBO_WIDTH: 512,          // texture resolution
   FBO_HEIGHT: 256,
