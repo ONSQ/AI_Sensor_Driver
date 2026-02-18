@@ -15,6 +15,11 @@ const useGameStore = create((set, get) => ({
   isRunning: false,
   seed: 12345,
 
+  // Waypoint navigation state
+  waypoints: [],
+  currentWaypointIndex: 0,
+  waypointsCompleted: 0,
+
   setSeed: (seed) => set({ seed }),
   setPhase: (phase) => set({ phase }),
   startGame: () => set({ phase: PHASES.PHASE_A, isRunning: true, timeRemaining: 600, score: 0 }),
@@ -28,6 +33,20 @@ const useGameStore = create((set, get) => ({
     }
   },
   addScore: (points) => set((s) => ({ score: s.score + points })),
+
+  // Waypoint actions
+  setWaypoints: (waypoints) => set({ waypoints, currentWaypointIndex: 0, waypointsCompleted: 0 }),
+  advanceWaypoint: () => set((s) => {
+    const waypoints = [...s.waypoints];
+    if (s.currentWaypointIndex >= waypoints.length) return {};
+    waypoints[s.currentWaypointIndex] = { ...waypoints[s.currentWaypointIndex], reached: true };
+    return {
+      waypoints,
+      currentWaypointIndex: s.currentWaypointIndex + 1,
+      waypointsCompleted: s.waypointsCompleted + 1,
+      score: s.score + 200,
+    };
+  }),
 }));
 
 export default useGameStore;

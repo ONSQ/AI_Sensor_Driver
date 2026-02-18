@@ -4,9 +4,10 @@
 // traffic infrastructure + zone props.
 // ============================================================
 
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { generateWorld } from '../../systems/world/generateWorld.js';
+import { generateWaypoints, WAYPOINT_REACH_RADIUS } from '../../systems/waypoints/generateWaypoints.js';
 import useTrafficStore from '../../stores/useTrafficStore.js';
 import useVehicleStore from '../../stores/useVehicleStore.js';
 import useGameStore from '../../stores/useGameStore.js';
@@ -18,12 +19,28 @@ import Block from './Block.jsx';
 import TrafficLight from './TrafficLight.jsx';
 import StopSign from './StopSign.jsx';
 import ZoneProps from './ZoneProps.jsx';
+import WaypointMarker from './WaypointMarker.jsx';
 import Vehicle from '../vehicle/Vehicle.jsx';
 
 export default function CityWorld({ seed = 12345, cameraMode = 'orbit' }) {
   const worldData = useMemo(() => generateWorld(seed), [seed]);
   const collisionData = useMemo(() => buildCollisionData(worldData), [worldData]);
   const tickTraffic = useTrafficStore((s) => s.tick);
+
+  // Generate waypoints once per seed
+  const waypointData = useMemo(() => {
+    const startPos = useVehicleStore.getState().position;
+    return generateWaypoints(seed, startPos);
+  }, [seed]);
+
+  // Push waypoints into game store when they change
+  useEffect(() => {
+    useGameStore.getState().setWaypoints(waypointData);
+  }, [waypointData]);
+
+  // Subscribe to waypoint state for rendering
+  const waypoints = useGameStore((s) => s.waypoints);
+  const currentWaypointIndex = useGameStore((s) => s.currentWaypointIndex);
 
   // Drive the traffic light clock + vehicle physics + collision every frame
   useFrame((_, delta) => {
@@ -36,6 +53,21 @@ export default function CityWorld({ seed = 12345, cameraMode = 'orbit' }) {
     vState.applyPhysicsState(correctedState);
     if (scoreDelta !== 0) {
       useGameStore.getState().addScore(scoreDelta);
+    }
+
+    // Waypoint proximity check
+    const gameState = useGameStore.getState();
+    const { waypoints: wps, currentWaypointIndex: wpIdx } = gameState;
+    if (wpIdx < wps.length) {
+      const wp = wps[wpIdx];
+      if (wp && !wp.reached) {
+        const [vx2, , vz2] = correctedState.position;
+        const dx = vx2 - wp.position[0];
+        const dz = vz2 - wp.position[2];
+        if (dx * dx + dz * dz < WAYPOINT_REACH_RADIUS * WAYPOINT_REACH_RADIUS) {
+          gameState.advanceWaypoint();
+        }
+      }
     }
   });
 
@@ -81,6 +113,17 @@ export default function CityWorld({ seed = 12345, cameraMode = 'orbit' }) {
           <planeGeometry args={[line.width, line.length]} />
           <meshStandardMaterial color={line.color} />
         </mesh>
+      ))}
+
+      {/* Navigation waypoints */}
+      {waypoints.map((wp, i) => (
+        <WaypointMarker
+          key={`wp-${wp.id}`}
+          position={wp.position}
+          active={i === currentWaypointIndex}
+          reached={wp.reached}
+          index={i}
+        />
       ))}
 
       {/* Player vehicle (visible in orbit + third-person, hidden in first-person) */}

@@ -10,6 +10,7 @@ import ThirdPersonCamera from './components/vehicle/ThirdPersonCamera.jsx';
 import RearviewMirror from './components/vehicle/RearviewMirror.jsx';
 import InputHandler from './components/vehicle/InputHandler.jsx';
 import CockpitHUD from './components/ui/CockpitHUD.jsx';
+import WaypointCompass from './components/ui/WaypointCompass.jsx';
 import { CAMERA } from './constants/vehicle.js';
 
 /**
@@ -110,6 +111,9 @@ export default function App() {
 
       {/* Cockpit HUD (first-person + third-person) */}
       <CockpitHUD visible={!isOrbit} />
+
+      {/* Waypoint compass (first-person + third-person) */}
+      <WaypointCompass visible={!isOrbit} />
 
       {/* Debug HUD overlay */}
       <div style={{
