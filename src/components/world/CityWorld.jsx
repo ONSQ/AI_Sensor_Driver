@@ -10,6 +10,7 @@ import { generateWorld } from '../../systems/world/generateWorld.js';
 import useTrafficStore from '../../stores/useTrafficStore.js';
 import useVehicleStore from '../../stores/useVehicleStore.js';
 import { tickVehiclePhysics } from '../../systems/vehicle/vehiclePhysics.js';
+import { buildCollisionData, resolveCollisions } from '../../systems/vehicle/collisions.js';
 import Ground from './Ground.jsx';
 import Roads from './Roads.jsx';
 import Block from './Block.jsx';
@@ -20,16 +21,18 @@ import Vehicle from '../vehicle/Vehicle.jsx';
 
 export default function CityWorld({ seed = 12345, cameraMode = 'orbit' }) {
   const worldData = useMemo(() => generateWorld(seed), [seed]);
+  const collisionData = useMemo(() => buildCollisionData(worldData), [worldData]);
   const tickTraffic = useTrafficStore((s) => s.tick);
 
-  // Drive the traffic light clock + vehicle physics every frame
+  // Drive the traffic light clock + vehicle physics + collision every frame
   useFrame((_, delta) => {
     tickTraffic(delta);
 
-    // Vehicle physics tick
+    // Vehicle physics tick → collision resolution
     const vState = useVehicleStore.getState();
-    const newState = tickVehiclePhysics(vState, vState.inputs, delta);
-    vState.applyPhysicsState(newState);
+    const candidateState = tickVehiclePhysics(vState, vState.inputs, delta);
+    const correctedState = resolveCollisions(candidateState, collisionData);
+    vState.applyPhysicsState(correctedState);
   });
 
   return (
