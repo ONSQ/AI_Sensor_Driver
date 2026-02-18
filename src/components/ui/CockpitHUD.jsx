@@ -5,6 +5,7 @@
 
 import { useEffect, useState } from 'react';
 import useVehicleStore from '../../stores/useVehicleStore.js';
+import useGameStore from '../../stores/useGameStore.js';
 import { SPEED_LIMITS } from '../../constants/traffic.js';
 
 /**
@@ -16,12 +17,14 @@ function useVehicleHUD() {
     speedMph: 0,
     gear: 'P',
     currentZone: 'city',
+    score: 0,
   });
 
   useEffect(() => {
     const interval = setInterval(() => {
       const { speedMph, gear, currentZone } = useVehicleStore.getState();
-      setHud({ speedMph, gear, currentZone });
+      const { score } = useGameStore.getState();
+      setHud({ speedMph, gear, currentZone, score });
     }, 66); // ~15fps
     return () => clearInterval(interval);
   }, []);
@@ -30,7 +33,7 @@ function useVehicleHUD() {
 }
 
 export default function CockpitHUD({ visible = true }) {
-  const { speedMph, gear, currentZone } = useVehicleHUD();
+  const { speedMph, gear, currentZone, score } = useVehicleHUD();
 
   if (!visible) return null;
 
@@ -65,6 +68,17 @@ export default function CockpitHUD({ visible = true }) {
           color: isOverSpeed ? '#ff2200' : '#00ff88',
         }}>
           LIMIT {speedLimit}
+        </div>
+      </div>
+
+      {/* Score */}
+      <div style={styles.scoreBlock}>
+        <div style={styles.scoreLabel}>SCORE</div>
+        <div style={{
+          ...styles.scoreValue,
+          color: score < 0 ? '#ff2200' : '#00ff88',
+        }}>
+          {score}
         </div>
       </div>
     </div>
@@ -133,5 +147,20 @@ const styles = {
     fontSize: '20px',
     fontWeight: 'bold',
     marginTop: '2px',
+  },
+  scoreBlock: {
+    background: 'rgba(0, 0, 0, 0.8)',
+    border: '1px solid rgba(0, 255, 136, 0.3)',
+    borderRadius: '8px',
+    padding: '8px 16px',
+    textAlign: 'center',
+  },
+  scoreLabel: {
+    fontSize: '10px',
+    color: '#888',
+  },
+  scoreValue: {
+    fontSize: '28px',
+    fontWeight: 'bold',
   },
 };

@@ -23,6 +23,17 @@ const SLOWDOWN = {
   pole: 0.2,
 };
 
+// Score penalties per collision type (from architecture doc)
+const SCORE_PENALTY = {
+  cone: -50,
+  barrier: -50,
+  building: -25,
+  pole: -25,
+};
+
+// Cooldown frames before the same object can score-penalize again
+const HIT_COOLDOWN_FRAMES = 60; // ~1 second at 60fps
+
 // Pushback margin to prevent sticking (meters)
 const PUSH_MARGIN = 0.02;
 
@@ -37,6 +48,7 @@ const PUSH_MARGIN = 0.02;
 export function buildCollisionData(worldData) {
   const byBlock = {};
   const global = [];
+  let nextId = 0;
 
   // --- Buildings & props from each block ---
   for (const block of worldData.blocks) {
@@ -47,6 +59,7 @@ export function buildCollisionData(worldData) {
     for (const b of block.buildings) {
       const [x, , z] = b.position;
       objects.push({
+        id: nextId++,
         type: 'building',
         minX: x - b.width / 2,
         maxX: x + b.width / 2,
@@ -61,6 +74,7 @@ export function buildCollisionData(worldData) {
 
       if (p.type === 'cone') {
         objects.push({
+          id: nextId++,
           type: 'cone',
           cx: px,
           cz: pz,
@@ -69,6 +83,7 @@ export function buildCollisionData(worldData) {
       } else if (p.type === 'barrier') {
         const rot = p.rotation || 0;
         objects.push({
+          id: nextId++,
           type: 'barrier',
           cx: px,
           cz: pz,
@@ -83,6 +98,7 @@ export function buildCollisionData(worldData) {
         p.type === 'speed_sign'
       ) {
         objects.push({
+          id: nextId++,
           type: 'pole',
           cx: px,
           cz: pz,
@@ -98,6 +114,7 @@ export function buildCollisionData(worldData) {
   if (worldData.trafficLights) {
     for (const tl of worldData.trafficLights) {
       global.push({
+        id: nextId++,
         type: 'pole',
         cx: tl.position[0],
         cz: tl.position[2],
@@ -110,6 +127,7 @@ export function buildCollisionData(worldData) {
   if (worldData.stopSigns) {
     for (const ss of worldData.stopSigns) {
       global.push({
+        id: nextId++,
         type: 'pole',
         cx: ss.position[0],
         cz: ss.position[2],
@@ -118,7 +136,10 @@ export function buildCollisionData(worldData) {
     }
   }
 
-  return { byBlock, global };
+  // Hit cooldown tracker: id → frames remaining
+  const hitCooldowns = new Map();
+
+  return { byBlock, global, hitCooldowns };
 }
 
 // ============================================================
@@ -307,7 +328,8 @@ function obbVsOBB(bCx, bCz, bHw, bHd, bSin, bCos, vCorners, vSinH, vCosH) {
 
 /**
  * Resolve collisions against the candidate vehicle state.
- * Returns a corrected state (or the same state if no collisions).
+ * Returns { state, scoreDelta } where scoreDelta is the total
+ * point change from new hits this frame (0 if no new scored hits).
  */
 export function resolveCollisions(vehicleState, collisionData) {
   const [vx, vy, vz] = vehicleState.position;
@@ -316,6 +338,13 @@ export function resolveCollisions(vehicleState, collisionData) {
   const sinH = Math.sin(heading);
   const cosH = Math.cos(heading);
   const corners = getVehicleCorners(vx, vz, sinH, cosH);
+
+  // Tick down cooldowns
+  const { hitCooldowns } = collisionData;
+  for (const [id, frames] of hitCooldowns) {
+    if (frames <= 1) hitCooldowns.delete(id);
+    else hitCooldowns.set(id, frames - 1);
+  }
 
   // Gather nearby collision objects
   const blockKeys = getNearbyBlockKeys(vx, vz);
@@ -328,7 +357,7 @@ export function resolveCollisions(vehicleState, collisionData) {
   nearby.push(...collisionData.global);
 
   // Early exit if nothing nearby
-  if (nearby.length === 0) return vehicleState;
+  if (nearby.length === 0) return { state: vehicleState, scoreDelta: 0 };
 
   // Quick bounding circle for early-out (vehicle bounding radius)
   const vBoundRadius = Math.sqrt(VHW * VHW + VHL * VHL); // ~2.28m
@@ -337,6 +366,7 @@ export function resolveCollisions(vehicleState, collisionData) {
   let pushZ = 0;
   let hitBuilding = false;
   let totalSlowdown = 0;
+  let scoreDelta = 0;
 
   for (const obj of nearby) {
     if (obj.type === 'building') {
@@ -354,6 +384,11 @@ export function resolveCollisions(vehicleState, collisionData) {
         pushX += result.pushX;
         pushZ += result.pushZ;
         hitBuilding = true;
+        // Score penalty (with cooldown)
+        if (!hitCooldowns.has(obj.id)) {
+          scoreDelta += SCORE_PENALTY.building;
+          hitCooldowns.set(obj.id, HIT_COOLDOWN_FRAMES);
+        }
       }
     } else if (obj.type === 'cone' || obj.type === 'pole') {
       // Quick distance check
@@ -363,6 +398,11 @@ export function resolveCollisions(vehicleState, collisionData) {
 
       if (circleVsOBB(obj.cx, obj.cz, obj.radius, vx, vz, sinH, cosH)) {
         totalSlowdown += SLOWDOWN[obj.type] || 0.2;
+        // Score penalty (with cooldown)
+        if (!hitCooldowns.has(obj.id)) {
+          scoreDelta += SCORE_PENALTY[obj.type] || -25;
+          hitCooldowns.set(obj.id, HIT_COOLDOWN_FRAMES);
+        }
       }
     } else if (obj.type === 'barrier') {
       // Quick distance check
@@ -373,12 +413,17 @@ export function resolveCollisions(vehicleState, collisionData) {
 
       if (obbVsOBB(obj.cx, obj.cz, obj.hw, obj.hd, obj.sinR, obj.cosR, corners, sinH, cosH)) {
         totalSlowdown += SLOWDOWN.barrier;
+        // Score penalty (with cooldown)
+        if (!hitCooldowns.has(obj.id)) {
+          scoreDelta += SCORE_PENALTY.barrier;
+          hitCooldowns.set(obj.id, HIT_COOLDOWN_FRAMES);
+        }
       }
     }
   }
 
   // No collisions — return unchanged
-  if (!hitBuilding && totalSlowdown === 0) return vehicleState;
+  if (!hitBuilding && totalSlowdown === 0) return { state: vehicleState, scoreDelta };
 
   // Build corrected state
   let newX = vx;
@@ -400,8 +445,11 @@ export function resolveCollisions(vehicleState, collisionData) {
   newZ = Math.max(-margin, Math.min(margin, newZ));
 
   return {
-    ...vehicleState,
-    position: [newX, vy, newZ],
-    speed: newSpeed,
+    state: {
+      ...vehicleState,
+      position: [newX, vy, newZ],
+      speed: newSpeed,
+    },
+    scoreDelta,
   };
 }

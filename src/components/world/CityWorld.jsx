@@ -9,6 +9,7 @@ import { useFrame } from '@react-three/fiber';
 import { generateWorld } from '../../systems/world/generateWorld.js';
 import useTrafficStore from '../../stores/useTrafficStore.js';
 import useVehicleStore from '../../stores/useVehicleStore.js';
+import useGameStore from '../../stores/useGameStore.js';
 import { tickVehiclePhysics } from '../../systems/vehicle/vehiclePhysics.js';
 import { buildCollisionData, resolveCollisions } from '../../systems/vehicle/collisions.js';
 import Ground from './Ground.jsx';
@@ -28,11 +29,14 @@ export default function CityWorld({ seed = 12345, cameraMode = 'orbit' }) {
   useFrame((_, delta) => {
     tickTraffic(delta);
 
-    // Vehicle physics tick → collision resolution
+    // Vehicle physics tick → collision resolution → scoring
     const vState = useVehicleStore.getState();
     const candidateState = tickVehiclePhysics(vState, vState.inputs, delta);
-    const correctedState = resolveCollisions(candidateState, collisionData);
+    const { state: correctedState, scoreDelta } = resolveCollisions(candidateState, collisionData);
     vState.applyPhysicsState(correctedState);
+    if (scoreDelta !== 0) {
+      useGameStore.getState().addScore(scoreDelta);
+    }
   });
 
   return (
