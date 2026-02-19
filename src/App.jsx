@@ -76,13 +76,13 @@ export default function App() {
   if (sensorState.weather !== weather) sensorState.setWeather(weather);
   if (sensorState.timeOfDay !== timeOfDay) sensorState.setTimeOfDay(timeOfDay);
 
-  // Sync camera FOV to sensor store for CV main overlay
-  const gameFov = isFirstPerson ? CAMERA.FIRST_PERSON_FOV : CAMERA.THIRD_PERSON_FOV;
-  if (sensorState.mainCameraFov !== gameFov) sensorState.setMainCameraFov(gameFov);
-
   const isFirstPerson = cameraMode === 'first-person';
   const isThirdPerson = cameraMode === 'third-person';
   const isOrbit = cameraMode === 'orbit';
+
+  // Sync camera FOV to sensor store for CV main overlay
+  const gameFov = isFirstPerson ? CAMERA.FIRST_PERSON_FOV : CAMERA.THIRD_PERSON_FOV;
+  if (sensorState.mainCameraFov !== gameFov) sensorState.setMainCameraFov(gameFov);
 
   return (
     <div style={{ width: '100vw', height: '100vh' }}>
