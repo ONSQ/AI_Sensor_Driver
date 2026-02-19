@@ -75,6 +75,10 @@ export function tickThermal(vehicle, sensorTargets, weather, buildingAABBs) {
       displayTemp: temp,       // degraded temp for intensity
       radius,
       type: t.type,
+      // Front-view projection data
+      worldY: t.position[1],  // world Y coordinate
+      boundsH: t.bounds.h,    // target height (meters)
+      boundsHW: t.bounds.hw,  // target half-width (meters)
     });
   }
 

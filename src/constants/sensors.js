@@ -18,9 +18,8 @@ export const LIDAR = {
   FOG_RANGE_FACTOR: 0.4,
   RAIN_NOISE_METERS: 1.5,
 
-  // Canvas overlay
-  CANVAS_SIZE: 200,
-  METERS_PER_PIXEL: 0.8,               // 200 × 0.8 = 160m coverage
+  // Front-view projection
+  FRONT_VIEW_FOV: 75,                   // degrees — matches first-person camera
 
   // Visualization
   POINT_SIZE: 0.25,
@@ -34,8 +33,7 @@ export const LIDAR = {
 // === THERMAL IR ===
 export const THERMAL = {
   RANGE: 60,                            // meters
-  CANVAS_SIZE: 200,                     // pixels (square)
-  METERS_PER_PIXEL: 0.6,               // 200 × 0.6 = 120m coverage
+  FRONT_VIEW_FOV: 75,                   // degrees — matches first-person camera
   FRAME_SKIP: 4,                        // ~15fps
   STAGGER_OFFSET: 1,
 

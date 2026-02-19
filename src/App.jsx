@@ -14,7 +14,7 @@ import WaypointCompass from './components/ui/WaypointCompass.jsx';
 import LidarPanel from './components/sensors/LidarPanel.jsx';
 import ThermalPanel from './components/sensors/ThermalPanel.jsx';
 import AudioPanel from './components/sensors/AudioPanel.jsx';
-import CameraPanel from './components/sensors/CameraPanel.jsx';
+import CameraOverlay from './components/sensors/CameraOverlay.jsx';
 import SensorStatusBar from './components/sensors/SensorStatusBar.jsx';
 import useSensorStore from './stores/useSensorStore.js';
 import { CAMERA } from './constants/vehicle.js';
@@ -75,6 +75,10 @@ export default function App() {
   if (sensorState.sensors.lidar.rayCount !== lidarRays) sensorState.setLidarRayCount(lidarRays);
   if (sensorState.weather !== weather) sensorState.setWeather(weather);
   if (sensorState.timeOfDay !== timeOfDay) sensorState.setTimeOfDay(timeOfDay);
+
+  // Sync camera FOV to sensor store for CV main overlay
+  const gameFov = isFirstPerson ? CAMERA.FIRST_PERSON_FOV : CAMERA.THIRD_PERSON_FOV;
+  if (sensorState.mainCameraFov !== gameFov) sensorState.setMainCameraFov(gameFov);
 
   const isFirstPerson = cameraMode === 'first-person';
   const isThirdPerson = cameraMode === 'third-person';
@@ -138,7 +142,7 @@ export default function App() {
       <LidarPanel visible={!isOrbit} />
       <ThermalPanel visible={!isOrbit} />
       <AudioPanel visible={!isOrbit} />
-      <CameraPanel visible={!isOrbit} />
+      <CameraOverlay visible={!isOrbit} />
       <SensorStatusBar visible={!isOrbit} />
 
       {/* Debug HUD overlay */}

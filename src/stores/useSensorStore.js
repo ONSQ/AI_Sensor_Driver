@@ -10,6 +10,7 @@ const useSensorStore = create((set) => ({
   // === Global settings ===
   weather: 'clear',       // 'clear' | 'rain' | 'fog'
   timeOfDay: 'daylight',  // 'daylight' | 'dusk' | 'night'
+  mainCameraFov: 75,      // synced from App based on camera mode
 
   // === Per-sensor enable + settings ===
   sensors: {
@@ -44,6 +45,7 @@ const useSensorStore = create((set) => ({
       center: [],
       right: [],
       rear: [],
+      main: [],
     },
   },
 
@@ -68,6 +70,7 @@ const useSensorStore = create((set) => ({
 
   setWeather: (weather) => set({ weather }),
   setTimeOfDay: (timeOfDay) => set({ timeOfDay }),
+  setMainCameraFov: (fov) => set({ mainCameraFov: fov }),
 
   // Batch updates from engines (called once per sensor tick)
   updateLidar:   (lidarData)   => set({ lidarData }),

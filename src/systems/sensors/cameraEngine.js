@@ -27,7 +27,7 @@ const EYE_HEIGHT = 1.5;
  * @param {object[]} buildingAABBs
  * @returns {{ views: object }}
  */
-export function tickCamera(vehicle, sensorTargets, timeOfDay, weather, buildingAABBs) {
+export function tickCamera(vehicle, sensorTargets, timeOfDay, weather, buildingAABBs, mainFov) {
   const [vx, , vz] = vehicle.position;
   const { heading } = vehicle;
   const rangeSq = CAMERA_CV.MAX_RANGE * CAMERA_CV.MAX_RANGE;
@@ -44,7 +44,13 @@ export function tickCamera(vehicle, sensorTargets, timeOfDay, weather, buildingA
 
   const views = {};
 
-  for (const view of CAMERA_CV.VIEWS) {
+  // Build view list: standard 4 views + dynamic "main" view matching game camera FOV
+  const allViews = [
+    ...CAMERA_CV.VIEWS,
+    { id: 'main', fovDeg: mainFov || 75, headingOffset: 0, label: 'MAIN' },
+  ];
+
+  for (const view of allViews) {
     const camHeading = heading + view.headingOffset;
     const halfFOV = (view.fovDeg * Math.PI) / 360;
     const aspect = CAMERA_CV.CANVAS_WIDTH / CAMERA_CV.CANVAS_HEIGHT;

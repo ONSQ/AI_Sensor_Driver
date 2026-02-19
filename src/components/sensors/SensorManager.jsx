@@ -81,6 +81,7 @@ export default function SensorManager({ sensorTargets, collisionData }) {
         timeOfDay,
         weather,
         buildingAABBs,
+        sensorState.mainCameraFov,
       );
       sensorState.updateCamera(result);
     }
