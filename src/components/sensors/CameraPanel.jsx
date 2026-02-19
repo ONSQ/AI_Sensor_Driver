@@ -6,47 +6,35 @@
 import { useRef, useEffect, useCallback } from 'react';
 import useSensorStore from '../../stores/useSensorStore.js';
 import { CAMERA_CV } from '../../constants/sensors.js';
-
-const W = CAMERA_CV.CANVAS_WIDTH;
-const H = CAMERA_CV.CANVAS_HEIGHT;
+import DraggablePanel from './DraggablePanel.jsx';
 
 /**
  * Draw a single camera view's detections onto a canvas.
  */
-function drawView(ctx, detections, label) {
-  // Black background
+function drawView(ctx, w, h, detections, label) {
   ctx.fillStyle = '#000000';
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillRect(0, 0, w, h);
 
-  // Draw each detection
   for (const det of detections) {
-    const x = det.x * W;
-    const y = det.y * H;
-    const w = det.w * W;
-    const h = det.h * H;
+    const x = det.x * w;
+    const y = det.y * h;
+    const bw = det.w * w;
+    const bh = det.h * h;
 
-    // Clamp within canvas
-    const cx = Math.max(0, Math.min(W - 2, x));
-    const cy = Math.max(0, Math.min(H - 2, y));
-    const cw = Math.max(4, Math.min(W - cx, w));
-    const ch = Math.max(4, Math.min(H - cy, h));
+    const cx = Math.max(0, Math.min(w - 2, x));
+    const cy = Math.max(0, Math.min(h - 2, y));
+    const cw = Math.max(4, Math.min(w - cx, bw));
+    const ch = Math.max(4, Math.min(h - cy, bh));
 
-    // Bounding box
     ctx.strokeStyle = det.color;
     ctx.lineWidth = 1.5;
     ctx.strokeRect(cx, cy, cw, ch);
 
-    // Label with confidence
     const conf = Math.round(det.confidence * 100);
-    const labelText = conf < 50
-      ? `${det.label}? ${conf}%`
-      : `${det.label} ${conf}%`;
+    const labelText = conf < 50 ? `${det.label}? ${conf}%` : `${det.label} ${conf}%`;
 
-    ctx.fillStyle = det.color;
     ctx.font = 'bold 8px monospace';
     ctx.textAlign = 'left';
-
-    // Background for label
     const textW = ctx.measureText(labelText).width;
     ctx.fillStyle = 'rgba(0,0,0,0.7)';
     ctx.fillRect(cx, cy - 10, textW + 4, 10);
@@ -54,11 +42,10 @@ function drawView(ctx, detections, label) {
     ctx.fillText(labelText, cx + 2, cy - 2);
   }
 
-  // View label
   ctx.fillStyle = 'rgba(255,255,255,0.4)';
   ctx.font = 'bold 8px monospace';
   ctx.textAlign = 'center';
-  ctx.fillText(label, W / 2, H - 4);
+  ctx.fillText(label, w / 2, h - 4);
 }
 
 export default function CameraPanel({ visible = true }) {
@@ -82,7 +69,7 @@ export default function CameraPanel({ visible = true }) {
       if (!canvas) continue;
       const ctx = canvas.getContext('2d');
       const detections = views[view.id] || [];
-      drawView(ctx, detections, view.label);
+      drawView(ctx, canvas.width, canvas.height, detections, view.label);
     }
   }, []);
 
@@ -95,48 +82,43 @@ export default function CameraPanel({ visible = true }) {
   if (!visible || !enabled) return null;
 
   return (
-    <div style={styles.container}>
-      {/* Top row: left | center | right */}
-      <div style={styles.row}>
-        <canvas ref={leftRef} width={W} height={H} style={styles.canvas} />
-        <canvas ref={centerRef} width={W} height={H} style={styles.canvas} />
-        <canvas ref={rightRef} width={W} height={H} style={styles.canvas} />
-      </div>
-      {/* Bottom: rear (centered) */}
-      <div style={styles.row}>
-        <canvas ref={rearRef} width={W} height={H} style={styles.canvas} />
-      </div>
-      {/* Panel label */}
-      <div style={styles.label}>CAMERA / CV</div>
-    </div>
+    <DraggablePanel
+      title="CAMERA / CV"
+      defaultX={typeof window !== 'undefined' ? window.innerWidth - 580 : 300}
+      defaultY={typeof window !== 'undefined' ? window.innerHeight - 310 : 500}
+      defaultWidth={560}
+      defaultHeight={280}
+      minWidth={280}
+      minHeight={140}
+      color="#ff6600"
+      visible={visible}
+    >
+      {(w, h) => {
+        // Divide space: top row = 3 views, bottom row = rear (centered)
+        const viewW = Math.floor((w - 6) / 3);
+        const viewH = Math.floor((h - 4) / 2);
+
+        // Update canvas sizes
+        for (const ref of [leftRef, centerRef, rightRef, rearRef]) {
+          if (ref.current) {
+            ref.current.width = viewW;
+            ref.current.height = viewH;
+          }
+        }
+
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'center', padding: '1px' }}>
+            <div style={{ display: 'flex', gap: '2px' }}>
+              <canvas ref={leftRef} width={viewW} height={viewH} style={{ display: 'block', borderRadius: '2px' }} />
+              <canvas ref={centerRef} width={viewW} height={viewH} style={{ display: 'block', borderRadius: '2px' }} />
+              <canvas ref={rightRef} width={viewW} height={viewH} style={{ display: 'block', borderRadius: '2px' }} />
+            </div>
+            <div style={{ display: 'flex', gap: '2px' }}>
+              <canvas ref={rearRef} width={viewW} height={viewH} style={{ display: 'block', borderRadius: '2px' }} />
+            </div>
+          </div>
+        );
+      }}
+    </DraggablePanel>
   );
 }
-
-const styles = {
-  container: {
-    position: 'absolute',
-    bottom: 100,
-    right: 20,
-    pointerEvents: 'none',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '2px',
-    alignItems: 'center',
-  },
-  row: {
-    display: 'flex',
-    gap: '2px',
-  },
-  canvas: {
-    borderRadius: '4px',
-    border: '1px solid rgba(255, 100, 0, 0.3)',
-    background: '#000',
-  },
-  label: {
-    color: 'rgba(255, 100, 0, 0.6)',
-    fontFamily: 'monospace',
-    fontSize: '9px',
-    fontWeight: 'bold',
-    marginTop: '2px',
-  },
-};

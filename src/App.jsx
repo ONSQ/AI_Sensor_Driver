@@ -11,6 +11,7 @@ import RearviewMirror from './components/vehicle/RearviewMirror.jsx';
 import InputHandler from './components/vehicle/InputHandler.jsx';
 import CockpitHUD from './components/ui/CockpitHUD.jsx';
 import WaypointCompass from './components/ui/WaypointCompass.jsx';
+import LidarPanel from './components/sensors/LidarPanel.jsx';
 import ThermalPanel from './components/sensors/ThermalPanel.jsx';
 import AudioPanel from './components/sensors/AudioPanel.jsx';
 import CameraPanel from './components/sensors/CameraPanel.jsx';
@@ -134,6 +135,7 @@ export default function App() {
       <WaypointCompass visible={!isOrbit} />
 
       {/* Sensor overlays (first-person + third-person) */}
+      <LidarPanel visible={!isOrbit} />
       <ThermalPanel visible={!isOrbit} />
       <AudioPanel visible={!isOrbit} />
       <CameraPanel visible={!isOrbit} />

@@ -8,9 +8,8 @@ import useSensorStore from '../../stores/useSensorStore.js';
 import useVehicleStore from '../../stores/useVehicleStore.js';
 import { THERMAL } from '../../constants/sensors.js';
 import { tempToFLIR } from '../../systems/sensors/sensorUtils.js';
+import DraggablePanel from './DraggablePanel.jsx';
 
-const SIZE = THERMAL.CANVAS_SIZE;
-const HALF = SIZE / 2;
 const MPP = THERMAL.METERS_PER_PIXEL;
 
 export default function ThermalPanel({ visible = true }) {
@@ -21,29 +20,40 @@ export default function ThermalPanel({ visible = true }) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+    const halfW = W / 2;
+    const halfH = H / 2;
     const { blobs } = useSensorStore.getState().thermalData;
     const { heading } = useVehicleStore.getState();
     const showTemps = useSensorStore.getState().sensors.thermal.showTemps;
 
     // Clear to black
     ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, SIZE, SIZE);
+    ctx.fillRect(0, 0, W, H);
 
     // Rotate canvas so vehicle heading faces up
     ctx.save();
-    ctx.translate(HALF, HALF);
-    ctx.rotate(heading);
+    ctx.translate(halfW, halfH);
+    ctx.rotate(-heading); // negative so forward = up
 
     // Draw blobs
     for (const blob of blobs) {
       const px = blob.relX / MPP;
       const py = blob.relZ / MPP;
-      const r = Math.max(3, blob.radius / MPP);
+      const r = Math.max(4, blob.radius / MPP);
 
       const [cr, cg, cb] = tempToFLIR(blob.temp, THERMAL.PALETTE);
-      const alpha = Math.max(0.2, blob.displayTemp / 50);
+      // Boosted alpha so cold objects are still visible
+      const alpha = Math.max(0.5, blob.displayTemp / 40);
 
-      // Radial gradient blob
+      // Solid dot at center — ensures every target has a visible marker
+      ctx.fillStyle = `rgba(${cr},${cg},${cb},${Math.min(1, alpha + 0.2)})`;
+      ctx.beginPath();
+      ctx.arc(px, py, Math.max(2, r * 0.3), 0, Math.PI * 2);
+      ctx.fill();
+
+      // Radial gradient halo
       const grad = ctx.createRadialGradient(px, py, 0, px, py, r);
       grad.addColorStop(0, `rgba(${cr},${cg},${cb},${Math.min(1, alpha)})`);
       grad.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
@@ -61,10 +71,10 @@ export default function ThermalPanel({ visible = true }) {
 
     ctx.restore();
 
-    // Draw vehicle dot at center (always on top)
+    // Vehicle dot at center (always on top)
     ctx.fillStyle = '#ffffff';
     ctx.beginPath();
-    ctx.arc(HALF, HALF, 3, 0, Math.PI * 2);
+    ctx.arc(halfW, halfH, 3, 0, Math.PI * 2);
     ctx.fill();
 
     // Range rings
@@ -73,26 +83,21 @@ export default function ThermalPanel({ visible = true }) {
     for (const r of THERMAL.RING_INTERVALS) {
       const rPx = r / MPP;
       ctx.beginPath();
-      ctx.arc(HALF, HALF, rPx, 0, Math.PI * 2);
+      ctx.arc(halfW, halfH, rPx, 0, Math.PI * 2);
       ctx.stroke();
     }
 
-    // Compass labels
+    // Forward label
     ctx.fillStyle = 'rgba(255,255,255,0.3)';
     ctx.font = '8px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('N', HALF, 10);
-    ctx.fillText('S', HALF, SIZE - 4);
-    ctx.textAlign = 'left';
-    ctx.fillText('W', 4, HALF + 3);
-    ctx.textAlign = 'right';
-    ctx.fillText('E', SIZE - 4, HALF + 3);
+    ctx.fillText('F', halfW, 10);
 
-    // Label
-    ctx.fillStyle = 'rgba(0,200,255,0.6)';
-    ctx.font = 'bold 9px monospace';
+    // Info label
+    ctx.fillStyle = 'rgba(0,200,255,0.5)';
+    ctx.font = '7px monospace';
     ctx.textAlign = 'left';
-    ctx.fillText('THERMAL IR', 4, SIZE - 4);
+    ctx.fillText(`${blobs.length} targets`, 4, H - 4);
   }, []);
 
   // Poll at ~15fps
@@ -105,27 +110,29 @@ export default function ThermalPanel({ visible = true }) {
   if (!visible || !enabled) return null;
 
   return (
-    <div style={styles.container}>
-      <canvas
-        ref={canvasRef}
-        width={SIZE}
-        height={SIZE}
-        style={styles.canvas}
-      />
-    </div>
+    <DraggablePanel
+      title="THERMAL IR"
+      defaultX={20}
+      defaultY={310}
+      defaultWidth={200}
+      defaultHeight={220}
+      color="#00ccff"
+      visible={visible}
+    >
+      {(w, h) => {
+        if (canvasRef.current && (canvasRef.current.width !== w || canvasRef.current.height !== h)) {
+          canvasRef.current.width = w;
+          canvasRef.current.height = h;
+        }
+        return (
+          <canvas
+            ref={canvasRef}
+            width={w}
+            height={h}
+            style={{ width: '100%', height: '100%', display: 'block' }}
+          />
+        );
+      }}
+    </DraggablePanel>
   );
 }
-
-const styles = {
-  container: {
-    position: 'absolute',
-    top: 80,
-    left: 20,
-    pointerEvents: 'none',
-  },
-  canvas: {
-    borderRadius: '8px',
-    border: '1px solid rgba(0, 200, 255, 0.3)',
-    background: '#000',
-  },
-};

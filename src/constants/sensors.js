@@ -18,6 +18,10 @@ export const LIDAR = {
   FOG_RANGE_FACTOR: 0.4,
   RAIN_NOISE_METERS: 1.5,
 
+  // Canvas overlay
+  CANVAS_SIZE: 200,
+  METERS_PER_PIXEL: 0.8,               // 200 × 0.8 = 160m coverage
+
   // Visualization
   POINT_SIZE: 0.25,
   COLOR_CLOSE: '#ff2200',
@@ -37,7 +41,7 @@ export const THERMAL = {
 
   // FLIR palette breakpoints (temp → [r, g, b])
   PALETTE: [
-    { temp: 0,   color: [0, 0, 0] },          // black (cold)
+    { temp: 0,   color: [15, 10, 50] },        // dark blue-purple (cold)
     { temp: 10,  color: [40, 0, 80] },         // deep purple
     { temp: 20,  color: [120, 0, 160] },       // purple
     { temp: 30,  color: [200, 40, 0] },        // red

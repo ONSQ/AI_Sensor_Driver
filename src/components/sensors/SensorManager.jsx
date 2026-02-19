@@ -14,7 +14,6 @@ import { tickThermal } from '../../systems/sensors/thermalEngine.js';
 import { tickAudio } from '../../systems/sensors/audioEngine.js';
 import { tickCamera } from '../../systems/sensors/cameraEngine.js';
 import { collectBuildingAABBs } from '../../systems/sensors/sensorTargets.js';
-import LidarViz from './LidarViz.jsx';
 
 export default function SensorManager({ sensorTargets, collisionData }) {
   const { scene } = useThree();
@@ -87,8 +86,6 @@ export default function SensorManager({ sensorTargets, collisionData }) {
     }
   });
 
-  // Only LiDAR renders in 3D scene; other sensors use HTML overlays
-  const lidarEnabled = useSensorStore((s) => s.sensors.lidar.enabled);
-
-  return <>{lidarEnabled && <LidarViz />}</>;
+  // All sensor visualization is done via HTML overlays now
+  return null;
 }
