@@ -11,28 +11,34 @@ export default function CameraOverlay({ visible = true }) {
   const canvasRef = useRef(null);
   const enabled = useSensorStore((s) => s.sensors.camera.enabled);
 
-  // Resize canvas to match viewport
+  // Resize canvas to match viewport (DPR-aware for crisp rendering)
   useEffect(() => {
+    if (!visible || !enabled) return;
     const resize = () => {
       if (canvasRef.current) {
-        canvasRef.current.width = window.innerWidth;
-        canvasRef.current.height = window.innerHeight;
+        const dpr = window.devicePixelRatio || 1;
+        canvasRef.current.width = window.innerWidth * dpr;
+        canvasRef.current.height = window.innerHeight * dpr;
       }
     };
     resize();
     window.addEventListener('resize', resize);
     return () => window.removeEventListener('resize', resize);
-  }, []);
+  }, [visible, enabled]);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = canvas.width;
-    const H = canvas.height;
+    const dpr = window.devicePixelRatio || 1;
 
-    // Clear (transparent)
-    ctx.clearRect(0, 0, W, H);
+    // Clear at native resolution (identity transform), then apply DPR scale
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    const W = window.innerWidth;
+    const H = window.innerHeight;
 
     const detections = useSensorStore.getState().cameraData.views.main || [];
 
@@ -49,14 +55,18 @@ export default function CameraOverlay({ visible = true }) {
       const cw = Math.max(4, Math.min(W - cx, bw));
       const ch = Math.max(4, Math.min(H - cy, bh));
 
-      // Bounding box
-      ctx.strokeStyle = det.color;
-      ctx.lineWidth = 2;
+      // Bounding box (semi-transparent)
+      const r = parseInt(det.color.slice(1, 3), 16);
+      const g = parseInt(det.color.slice(3, 5), 16);
+      const b = parseInt(det.color.slice(5, 7), 16);
+      ctx.strokeStyle = `rgba(${r},${g},${b},0.55)`;
+      ctx.lineWidth = 1.5;
       ctx.strokeRect(cx, cy, cw, ch);
 
       // Corner accents (small L-shapes at corners for a HUD feel)
       const cornerLen = Math.min(10, cw / 3, ch / 3);
-      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = `rgba(${r},${g},${b},0.8)`;
+      ctx.lineWidth = 1.5;
       // Top-left
       ctx.beginPath();
       ctx.moveTo(cx, cy + cornerLen);
@@ -94,19 +104,19 @@ export default function CameraOverlay({ visible = true }) {
       const textW = ctx.measureText(labelText).width;
 
       // Label background
-      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
       ctx.fillRect(cx, cy - 18, textW + 8, 18);
 
       // Label text
-      ctx.fillStyle = det.color;
+      ctx.fillStyle = `rgba(${r},${g},${b},0.9)`;
       ctx.fillText(labelText, cx + 4, cy - 5);
     }
 
     // Detection count badge (top-right)
     if (detections.length > 0) {
-      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
       ctx.fillRect(W - 100, 8, 92, 18);
-      ctx.fillStyle = 'rgba(255,102,0,0.7)';
+      ctx.fillStyle = 'rgba(255,102,0,0.8)';
       ctx.font = 'bold 10px monospace';
       ctx.textAlign = 'right';
       ctx.fillText(`CV: ${detections.length} objects`, W - 12, 21);
@@ -115,7 +125,7 @@ export default function CameraOverlay({ visible = true }) {
 
   useEffect(() => {
     if (!visible || !enabled) return;
-    const id = setInterval(draw, 66); // ~15fps
+    const id = setInterval(draw, 33); // ~30fps
     return () => clearInterval(id);
   }, [visible, enabled, draw]);
 

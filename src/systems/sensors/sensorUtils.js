@@ -80,8 +80,8 @@ export function distanceXZSq(ax, az, bx, bz) {
 export function bearingToTarget(vx, vz, heading, tx, tz) {
   const dx = tx - vx;
   const dz = tz - vz;
-  // World angle to target (atan2 gives angle from +Z axis)
-  const worldAngle = Math.atan2(dx, dz);
+  // World angle to target (Matches heading: 0 = -Z, -PI/2 = +X)
+  const worldAngle = Math.atan2(-dx, -dz);
   // Relative to vehicle heading
   let rel = worldAngle - heading;
   // Normalize to [-PI, PI]
@@ -201,8 +201,8 @@ export function projectToViewport(worldPos, camPos, camHeading, fovRad, aspect) 
   const cosH = Math.cos(camHeading);
 
   // Rotate into camera space: forward = +localZ (into scene)
-  const localX = dx * cosH + dz * sinH;
-  const localZ = dx * sinH - dz * cosH; // positive = in front of camera
+  const localX = dx * cosH - dz * sinH;
+  const localZ = -dx * sinH - dz * cosH; // positive = in front of camera
 
   if (localZ <= 0.5) return null; // Behind or too close
 

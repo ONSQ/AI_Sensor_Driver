@@ -93,8 +93,8 @@ export default function LidarPanel({ visible = true }) {
 
       // Rotate into camera-local space
       // Forward = positive localZ (into the screen)
-      const localX = relX * cosH + relZ * sinH;
-      const localZ = relX * sinH - relZ * cosH;
+      const localX = relX * cosH - relZ * sinH;
+      const localZ = -relX * sinH - relZ * cosH;
 
       // Skip points behind camera
       if (localZ <= 0.5) continue;

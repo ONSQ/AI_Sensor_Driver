@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { useControls } from 'leva';
@@ -36,7 +36,6 @@ function VehicleOrbitControls() {
   return (
     <OrbitControls
       ref={controlsRef}
-      makeDefault
       maxPolarAngle={Math.PI / 2.1}
       minDistance={10}
       maxDistance={200}
@@ -66,15 +65,19 @@ export default function App() {
   });
 
   // Sync leva control to store
-  if (debugSeed !== seed) {
-    setSeed(debugSeed);
-  }
+  useEffect(() => {
+    if (debugSeed !== seed) {
+      setSeed(debugSeed);
+    }
+  }, [debugSeed, seed, setSeed]);
 
   // Sync sensor controls to store
   const sensorState = useSensorStore.getState();
-  if (sensorState.sensors.lidar.rayCount !== lidarRays) sensorState.setLidarRayCount(lidarRays);
-  if (sensorState.weather !== weather) sensorState.setWeather(weather);
-  if (sensorState.timeOfDay !== timeOfDay) sensorState.setTimeOfDay(timeOfDay);
+  useEffect(() => {
+    if (sensorState.sensors.lidar.rayCount !== lidarRays) sensorState.setLidarRayCount(lidarRays);
+    if (sensorState.weather !== weather) sensorState.setWeather(weather);
+    if (sensorState.timeOfDay !== timeOfDay) sensorState.setTimeOfDay(timeOfDay);
+  }, [lidarRays, weather, timeOfDay, sensorState]);
 
   const isFirstPerson = cameraMode === 'first-person';
   const isThirdPerson = cameraMode === 'third-person';
@@ -82,7 +85,9 @@ export default function App() {
 
   // Sync camera FOV to sensor store for CV main overlay
   const gameFov = isFirstPerson ? CAMERA.FIRST_PERSON_FOV : CAMERA.THIRD_PERSON_FOV;
-  if (sensorState.mainCameraFov !== gameFov) sensorState.setMainCameraFov(gameFov);
+  useEffect(() => {
+    if (sensorState.mainCameraFov !== gameFov) sensorState.setMainCameraFov(gameFov);
+  }, [gameFov, sensorState]);
 
   return (
     <div style={{ width: '100vw', height: '100vh' }}>

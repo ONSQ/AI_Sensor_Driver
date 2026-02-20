@@ -58,6 +58,13 @@ export const THERMAL = {
     speed_sign: 16,
     traffic_light: 35,     // electronics generate heat
     stop_sign: 16,
+    // Dynamic entity signatures
+    pedestrian: 36,
+    vehicle_moving: 45,
+    vehicle_parked: 20,
+    emergency: 50,
+    animal: 37,
+    ball: 18,
   },
 
   INTENSITY_FALLOFF: 0.012,            // per meter
@@ -82,6 +89,11 @@ export const AUDIO = {
     engine:       { freq: 'low',  priority: 4,  label: 'ENGINE',    color: '#888888', baseIntensity: 0.6 },
     ambient:      { freq: 'low',  priority: 1,  label: 'AMBIENT',   color: '#336633', baseIntensity: 0.3 },
     signal:       { freq: 'mid',  priority: 5,  label: 'SIGNAL',    color: '#ffaa00', baseIntensity: 0.5 },
+    // Dynamic entity sound types
+    footsteps:    { freq: 'high', priority: 2,  label: 'FOOTSTEP',  color: '#88ccff', baseIntensity: 0.15 },
+    siren:        { freq: 'high', priority: 6,  label: 'SIREN',     color: '#ff0044', baseIntensity: 0.95 },
+    barking:      { freq: 'mid',  priority: 3,  label: 'BARK',      color: '#bb8844', baseIntensity: 0.3 },
+    bouncing:     { freq: 'high', priority: 2,  label: 'BOUNCE',    color: '#44cc44', baseIntensity: 0.2 },
   },
 
   RAIN_NOISE_FLOOR: 0.25,
@@ -112,6 +124,12 @@ export const CAMERA_CV = {
     traffic_light: { color: '#ff0000', label: 'T-LIGHT' },
     stop_sign:     { color: '#cc0000', label: 'STOP-SIGN' },
     hospital_cross:{ color: '#ff3333', label: 'HOSPITAL' },
+    // Dynamic entity classes
+    pedestrian:    { color: '#ffaa00', label: 'PERSON' },
+    vehicle:       { color: '#00ccff', label: 'VEHICLE' },
+    emergency:     { color: '#ff0044', label: 'AMBULANCE' },
+    animal:        { color: '#88ff44', label: 'ANIMAL' },
+    ball:          { color: '#ffff00', label: 'BALL' },
   },
 
   // Confidence multiplier by time-of-day

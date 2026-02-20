@@ -28,7 +28,7 @@ export const TRAFFIC_LIGHT_DIMS = {
   HOUSING_DEPTH: 0.3,
   LIGHT_RADIUS: 0.12,
   LIGHT_SPACING: 0.35,     // vertical spacing between lights
-  CORNER_OFFSET: 3.5,      // offset from intersection center to place pole
+  CORNER_OFFSET: 6.0,      // offset from intersection center to place pole (road is 10m wide, so half is 5m)
 };
 
 // Traffic light colors
@@ -49,7 +49,7 @@ export const STOP_SIGN_DIMS = {
   POLE_HEIGHT: 2.8,
   SIGN_RADIUS: 0.4,
   SIGN_THICKNESS: 0.03,
-  CORNER_OFFSET: 3.5,
+  CORNER_OFFSET: 6.0,
 };
 
 export const STOP_SIGN_COLORS = {

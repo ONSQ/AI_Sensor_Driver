@@ -23,12 +23,24 @@ import ZoneProps from './ZoneProps.jsx';
 import WaypointMarker from './WaypointMarker.jsx';
 import SensorManager from '../sensors/SensorManager.jsx';
 import Vehicle from '../vehicle/Vehicle.jsx';
+import useEntityStore from '../../stores/useEntityStore.js';
+import EntityRenderer from '../entities/EntityRenderer.jsx';
 
 export default function CityWorld({ seed = 12345, cameraMode = 'orbit' }) {
   const worldData = useMemo(() => generateWorld(seed), [seed]);
   const collisionData = useMemo(() => buildCollisionData(worldData), [worldData]);
   const sensorTargets = useMemo(() => buildSensorTargets(worldData), [worldData]);
   const tickTraffic = useTrafficStore((s) => s.tick);
+
+  // Initialize entities from seed (once per seed + worldData)
+  useEffect(() => {
+    useEntityStore.getState().initEntities(seed, worldData);
+  }, [seed, worldData]);
+
+  // Attach dynamic entity getter to collisionData for entity-vehicle collisions
+  useMemo(() => {
+    collisionData.entityGetter = () => useEntityStore.getState().entities;
+  }, [collisionData]);
 
   // Generate waypoints once per seed
   const waypointData = useMemo(() => {
@@ -48,6 +60,10 @@ export default function CityWorld({ seed = 12345, cameraMode = 'orbit' }) {
   // Drive the traffic light clock + vehicle physics + collision every frame
   useFrame((_, delta) => {
     tickTraffic(delta);
+
+    // Entity behavior tick (pedestrians, NPC vehicles, animals, etc.)
+    const vPos = useVehicleStore.getState().position;
+    useEntityStore.getState().tick(delta, useTrafficStore.getState(), vPos);
 
     // Vehicle physics tick → collision resolution → scoring
     const vState = useVehicleStore.getState();
@@ -128,6 +144,9 @@ export default function CityWorld({ seed = 12345, cameraMode = 'orbit' }) {
           index={i}
         />
       ))}
+
+      {/* Animated entities (pedestrians, NPC vehicles, animals, etc.) */}
+      <EntityRenderer />
 
       {/* Sensor systems (LiDAR renders in scene; others use HTML overlays) */}
       <SensorManager sensorTargets={sensorTargets} collisionData={collisionData} />

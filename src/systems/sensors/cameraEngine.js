@@ -5,6 +5,7 @@
 // → { views: { left: [...], center: [...], right: [...], rear: [...] } }
 // ============================================================
 
+import * as THREE from 'three';
 import { CAMERA_CV } from '../../constants/sensors.js';
 import {
   getBlockKeysInRange,
@@ -27,7 +28,7 @@ const EYE_HEIGHT = 1.5;
  * @param {object[]} buildingAABBs
  * @returns {{ views: object }}
  */
-export function tickCamera(vehicle, sensorTargets, timeOfDay, weather, buildingAABBs, mainFov) {
+export function tickCamera(vehicle, sensorTargets, timeOfDay, weather, buildingAABBs, mainFov, threeCamera) {
   const [vx, , vz] = vehicle.position;
   const { heading } = vehicle;
   const rangeSq = CAMERA_CV.MAX_RANGE * CAMERA_CV.MAX_RANGE;
@@ -53,35 +54,58 @@ export function tickCamera(vehicle, sensorTargets, timeOfDay, weather, buildingA
   for (const view of allViews) {
     const camHeading = heading + view.headingOffset;
     const halfFOV = (view.fovDeg * Math.PI) / 360;
-    const aspect = CAMERA_CV.CANVAS_WIDTH / CAMERA_CV.CANVAS_HEIGHT;
+    const aspect = view.id === 'main' && threeCamera
+      ? threeCamera.aspect
+      : CAMERA_CV.CANVAS_WIDTH / CAMERA_CV.CANVAS_HEIGHT;
     const fovRad = (view.fovDeg * Math.PI) / 180;
     const camPos = [vx, EYE_HEIGHT, vz];
 
     const detections = [];
 
+    const cx = camPos[0], cz = camPos[2];
+
     for (const t of candidates) {
       const [tx, , tz] = t.position;
-      const dSq = distanceXZSq(vx, vz, tx, tz);
+      const dSq = distanceXZSq(cx, cz, tx, tz);
       if (dSq > rangeSq) continue;
 
       const dist = Math.sqrt(dSq);
 
       // Check if target is within this view's FOV
-      const bearing = bearingToTarget(vx, vz, camHeading, tx, tz);
+      const bearing = bearingToTarget(cx, cz, camHeading, tx, tz);
       if (!isInFOV(bearing, halfFOV)) continue;
 
       // Line-of-sight check (camera blocked by walls)
       if (t.type !== 'building') {
-        if (!hasLineOfSight(vx, vz, tx, tz, buildingAABBs)) continue;
+        if (!hasLineOfSight(cx, cz, tx, tz, buildingAABBs)) continue;
       }
 
-      // Project center to viewport
-      const proj = projectToViewport(t.position, camPos, camHeading, fovRad, aspect);
-      if (!proj) continue;
+      let proj, sizeW, sizeH;
+      if (view.id === 'main' && threeCamera) {
+        const baseVec = new THREE.Vector3(tx, t.position[1], tz);
+        // Frustum culling (rough check if behind camera)
+        const viewDist = baseVec.distanceTo(threeCamera.position);
 
-      // Bounding box size (perspective scaling)
-      const sizeW = Math.min(0.8, (t.bounds.hw * 2) / (dist * Math.tan(fovRad / 2) * aspect * 2));
-      const sizeH = Math.min(0.8, t.bounds.h / (dist * Math.tan(fovRad / 2) * 2));
+        baseVec.project(threeCamera);
+        if (baseVec.z > 1.0) continue;
+
+        proj = {
+          x: (baseVec.x + 1) / 2,
+          y: (-baseVec.y + 1) / 2,
+        };
+
+        const topVec = new THREE.Vector3(tx, t.position[1] + t.bounds.h, tz).project(threeCamera);
+        const topY = (-topVec.y + 1) / 2;
+        sizeH = Math.max(0, proj.y - topY);
+
+        // Approximate width sizing using standard projection math with aspect compensation
+        sizeW = Math.min(0.8, (t.bounds.hw * 2) / (viewDist * Math.tan(fovRad / 2) * aspect * 2));
+      } else {
+        proj = projectToViewport(t.position, camPos, camHeading, fovRad, aspect);
+        if (!proj) continue;
+        sizeW = Math.min(0.8, (t.bounds.hw * 2) / (dist * Math.tan(fovRad / 2) * aspect * 2));
+        sizeH = Math.min(0.8, t.bounds.h / (dist * Math.tan(fovRad / 2) * 2));
+      }
 
       // Confidence computation
       let confidence = CAMERA_CV.BASE_CONFIDENCE + Math.random() * 0.15;
@@ -105,7 +129,7 @@ export function tickCamera(vehicle, sensorTargets, timeOfDay, weather, buildingA
 
       detections.push({
         x: proj.x - sizeW / 2,
-        y: proj.y - sizeH / 2,
+        y: proj.y - sizeH,
         w: sizeW,
         h: sizeH,
         class: t.sensorClass,

@@ -16,14 +16,16 @@ export const ZONE_TYPES = {
 export const GRID = {
   BLOCKS_PER_SIDE: 4,
   BLOCK_SIZE: 40,       // interior buildable area per block
-  ROAD_WIDTH: 10,       // total width including sidewalks
+  ROAD_WIDTH: 14,       // total width including sidewalks + parking shoulders
   SIDEWALK_WIDTH: 2,    // each side of the road
+  PARKING_WIDTH: 2,     // parking shoulder width (each side)
+  PARKING_OFFSET: 4,    // center of parking lane from road center (lane 3m + 0.5m gap + 0.5m)
   LANE_WIDTH: 3,        // per lane
-  BLOCK_STRIDE: 50,     // BLOCK_SIZE + ROAD_WIDTH
-  WORLD_SIZE: 210,      // 4 * 40 + 5 * 10
+  BLOCK_STRIDE: 54,     // BLOCK_SIZE + ROAD_WIDTH
+  WORLD_SIZE: 230,      // 4 * 40 + 5 * 14
 };
 
-export const WORLD_HALF = GRID.WORLD_SIZE / 2; // 105
+export const WORLD_HALF = GRID.WORLD_SIZE / 2; // 115
 
 // Fixed zone layout — [row][col], 0-indexed from top-left
 // Designed for pedagogical variety: each zone type appears 2-4 times,

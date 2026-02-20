@@ -11,6 +11,7 @@
 import { VEHICLE_DIMS } from '../../constants/vehicle.js';
 import { PROP_DIMS } from '../../constants/traffic.js';
 import { GRID, WORLD_HALF } from '../../constants/world.js';
+import { ENTITY_COLLISION } from '../../constants/entities.js';
 
 // Vehicle half-dimensions for OBB
 const VHW = VEHICLE_DIMS.BODY_WIDTH / 2;   // 0.9
@@ -187,8 +188,8 @@ function getVehicleCorners(x, z, sinH, cosH) {
   ];
 
   return localCorners.map(([lx, lz]) => [
-    x + lx * cosH - lz * sinH,
-    z + lx * sinH + lz * cosH,
+    x + lx * cosH + lz * sinH,
+    z - lx * sinH + lz * cosH,
   ]);
 }
 
@@ -254,7 +255,7 @@ function aabbVsOBB(aabb, corners, sinH, cosH) {
       // Direction: push vehicle away from building
       // Determine sign: push in direction from building center to vehicle center
       const bCenterProj = ((aabb.minX + aabb.maxX) / 2) * axX +
-                          ((aabb.minZ + aabb.maxZ) / 2) * axZ;
+        ((aabb.minZ + aabb.maxZ) / 2) * axZ;
       const vCenterProj = projV.min + (projV.max - projV.min) / 2;
       const sign = vCenterProj > bCenterProj ? 1 : -1;
       minAxis = [axX * sign, axZ * sign];
@@ -276,8 +277,8 @@ function circleVsOBB(cx, cz, radius, vx, vz, sinH, cosH) {
   // Transform circle center to vehicle local space
   const dx = cx - vx;
   const dz = cz - vz;
-  const localX = dx * cosH + dz * sinH;
-  const localZ = -dx * sinH + dz * cosH;
+  const localX = dx * cosH - dz * sinH;
+  const localZ = dx * sinH + dz * cosH;
 
   // Closest point on rectangle [-VHW..VHW] × [-VHL..VHL]
   const closestX = Math.max(-VHW, Math.min(VHW, localX));
@@ -418,6 +419,42 @@ export function resolveCollisions(vehicleState, collisionData) {
           scoreDelta += SCORE_PENALTY.barrier;
           hitCooldowns.set(obj.id, HIT_COOLDOWN_FRAMES);
         }
+      }
+    }
+  }
+
+  // --- Dynamic entity collisions ---
+  // Entities are passed via collisionData.entityGetter (lazy accessor)
+  if (collisionData.entityGetter) {
+    const entities = collisionData.entityGetter();
+    for (const ent of entities) {
+      if (!ent.visible) continue;
+      const dx = vx - ent.position[0];
+      const dz = vz - ent.position[2];
+      const distSq = dx * dx + dz * dz;
+      const checkRadius = (ent.collisionRadius || 0.3) + vBoundRadius;
+      if (distSq > checkRadius * checkRadius) continue;
+
+      // Fine-grained: circle vs vehicle OBB
+      if (!circleVsOBB(ent.position[0], ent.position[2], ent.collisionRadius || 0.3, vx, vz, sinH, cosH)) continue;
+
+      // Cooldown check (use entity id + 100000 offset to avoid clash with static ids)
+      const cooldownId = ent.id + 100000;
+      if (hitCooldowns.has(cooldownId)) continue;
+      hitCooldowns.set(cooldownId, ENTITY_COLLISION.HIT_COOLDOWN_FRAMES);
+
+      if (ent.type === 'pedestrian') {
+        hitBuilding = true;   // dead stop
+        scoreDelta += ENTITY_COLLISION.PEDESTRIAN_PENALTY;
+      } else if (ent.type === 'npcVehicle' || ent.type === 'emergency') {
+        hitBuilding = true;   // dead stop
+        scoreDelta += ENTITY_COLLISION.VEHICLE_PENALTY;
+      } else if (ent.type === 'animal') {
+        totalSlowdown += 0.5;
+        scoreDelta += ENTITY_COLLISION.ANIMAL_PENALTY;
+      } else if (ent.type === 'ball') {
+        totalSlowdown += 0.2;
+        scoreDelta += ENTITY_COLLISION.BALL_PENALTY;
       }
     }
   }

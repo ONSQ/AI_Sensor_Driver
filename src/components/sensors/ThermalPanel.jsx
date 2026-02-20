@@ -74,8 +74,8 @@ export default function ThermalPanel({ visible = true }) {
       const { relX, relZ, temp, displayTemp, boundsH, boundsHW, type, worldY } = blob;
 
       // Rotate into camera-local space
-      const localX = relX * cosH + relZ * sinH;
-      const localZ = relX * sinH - relZ * cosH;
+      const localX = relX * cosH - relZ * sinH;
+      const localZ = -relX * sinH - relZ * cosH;
 
       // Skip behind camera
       if (localZ <= 1.0) continue;

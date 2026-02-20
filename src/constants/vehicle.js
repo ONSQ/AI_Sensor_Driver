@@ -47,13 +47,13 @@ export const VEHICLE_PHYSICS = {
 };
 
 // Starting position: right lane of EW road at intersection row 2, cols 0–1
-// Intersection (2,0): x = -105 + 5 + 0*50 = -100, z = -105 + 5 + 2*50 = 0
-// Intersection (2,1): x = -105 + 5 + 1*50 = -50
-// Road segment center: x = -75, z = 0
+// Intersection (2,0): x = -115 + 7 + 0*54 = -108, z = -115 + 7 + 2*54 = 0
+// Intersection (2,1): x = -115 + 7 + 1*54 = -54
+// Road segment center: x = -81, z = 0
 // Right lane for eastbound (+X): z = 0 + 1.5 = 1.5 (south side)
 // Heading -PI/2: faces +X (east) in Three.js Y-rotation convention
 export const VEHICLE_START = {
-  POSITION: [-75, 0, 1.5],
+  POSITION: [-81, 0, 1.5],
   HEADING: -Math.PI / 2,
 };
 
