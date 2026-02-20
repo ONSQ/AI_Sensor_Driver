@@ -259,7 +259,7 @@ function spawnParkedVehicles(rng, segments) {
     } while (
       attempts < 20 &&
       (tooCloseToPlayer(x, z) ||
-       usedPositions.some(([ux, uz]) => Math.abs(ux - x) < 5 && Math.abs(uz - z) < 3))
+        usedPositions.some(([ux, uz]) => Math.abs(ux - x) < 5 && Math.abs(uz - z) < 3))
     );
 
     usedPositions.push([x, z]);
@@ -514,43 +514,43 @@ function spawnAnimals(rng, segments) {
     const z = isHoriz ? seg.center[2] + offset : seg.center[2] + t;
 
     if (!tooCloseToPlayer(x, z)) {
-    const wanderDir = randRange(rng, 0, Math.PI * 2);
+      const wanderDir = randRange(rng, 0, Math.PI * 2);
 
-    entities.push({
-      id: uid('deer'),
-      type: 'animal',
-      subtype: 'deer',
-      position: [x, 0, z],
-      heading: wanderDir,
-      speed: ANIMAL.DEER.SPEED,
-      behaviorState: 'wandering',
-      behaviorTimer: randRange(rng, ANIMAL.WANDER_TIME_MIN, ANIMAL.WANDER_TIME_MAX),
-      stateData: {
-        direction: wanderDir,
-        species: 'deer',
-        baseSpeed: ANIMAL.DEER.SPEED,
-        dartSpeed: ANIMAL.DEER.DART_SPEED,
-        dartDistance: 0,
-        homeX: x,
-        homeZ: z,
-      },
-      route: [],
-      routeIndex: 0,
-      triggered: false,
-      triggerPosition: null,
-      thermalTemp: ANIMAL.THERMAL_TEMP,
-      soundType: ANIMAL.SOUND_TYPE,
-      soundIntensity: ANIMAL.SOUND_INTENSITY,
-      sensorClass: ANIMAL.SENSOR_CLASS,
-      bounds: {
-        hw: ANIMAL.DEER.WIDTH / 2,
-        hd: ANIMAL.DEER.LENGTH / 2,
-        h: ANIMAL.DEER.HEIGHT,
-      },
-      collisionRadius: ANIMAL.COLLISION_RADIUS,
-      visible: true,
-      color: ANIMAL.DEER.COLOR,
-    });
+      entities.push({
+        id: uid('deer'),
+        type: 'animal',
+        subtype: 'deer',
+        position: [x, 0, z],
+        heading: wanderDir,
+        speed: ANIMAL.DEER.SPEED,
+        behaviorState: 'wandering',
+        behaviorTimer: randRange(rng, ANIMAL.WANDER_TIME_MIN, ANIMAL.WANDER_TIME_MAX),
+        stateData: {
+          direction: wanderDir,
+          species: 'deer',
+          baseSpeed: ANIMAL.DEER.SPEED,
+          dartSpeed: ANIMAL.DEER.DART_SPEED,
+          dartDistance: 0,
+          homeX: x,
+          homeZ: z,
+        },
+        route: [],
+        routeIndex: 0,
+        triggered: false,
+        triggerPosition: null,
+        thermalTemp: ANIMAL.THERMAL_TEMP,
+        soundType: ANIMAL.SOUND_TYPE,
+        soundIntensity: ANIMAL.SOUND_INTENSITY,
+        sensorClass: ANIMAL.SENSOR_CLASS,
+        bounds: {
+          hw: ANIMAL.DEER.WIDTH / 2,
+          hd: ANIMAL.DEER.LENGTH / 2,
+          h: ANIMAL.DEER.HEIGHT,
+        },
+        collisionRadius: ANIMAL.COLLISION_RADIUS,
+        visible: true,
+        color: ANIMAL.DEER.COLOR,
+      });
     }
   }
 
@@ -680,7 +680,7 @@ export function tickEntities(entities, delta, trafficState, playerPosition) {
         entities[i] = tickPedestrian(e, dt, trafficState);
         break;
       case 'npcVehicle':
-        entities[i] = tickNpcVehicle(e, dt, trafficState);
+        entities[i] = tickNpcVehicle(e, dt, trafficState, playerPosition);
         break;
       case 'animal':
         entities[i] = tickAnimal(e, dt);

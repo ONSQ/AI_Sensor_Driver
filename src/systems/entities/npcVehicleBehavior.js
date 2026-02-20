@@ -19,9 +19,10 @@ const ACCEL_RATE = 4.0;           // m/s^2 — acceleration from stop
  * @param {object} entity       - npcVehicle entity
  * @param {number} delta        - seconds since last frame
  * @param {object} trafficState - { getLightState(axis) }
+ * @param {number[]} playerPosition - [x, y, z]
  * @returns {object} mutated entity
  */
-export function tickNpcVehicle(entity, delta, trafficState) {
+export function tickNpcVehicle(entity, delta, trafficState, playerPosition) {
   // Parked vehicles never move
   if (entity.subtype === 'parked' || entity.behaviorState === 'parked') {
     return entity;
@@ -29,9 +30,9 @@ export function tickNpcVehicle(entity, delta, trafficState) {
 
   switch (entity.behaviorState) {
     case 'driving':
-      return drivingTick(entity, delta, trafficState);
+      return drivingTick(entity, delta, trafficState, playerPosition);
     case 'stopping':
-      return stoppingTick(entity, delta, trafficState);
+      return stoppingTick(entity, delta, trafficState, playerPosition);
     case 'stopped':
       return stoppedTick(entity, delta, trafficState);
     case 'turning':
@@ -108,7 +109,31 @@ function drivingTick(entity, delta, trafficState) {
     }
   }
 
-  // Traffic light check — when approaching an intersection
+  // Player Obstacle Avoidance
+  if (playerPosition) {
+    const dxP = playerPosition[0] - entity.position[0];
+    const dzP = playerPosition[2] - entity.position[2];
+    const distSq = dxP * dxP + dzP * dzP;
+
+    // Check if player is close (within 15m)
+    if (distSq < 15 * 15) {
+      // Check if player is in front of the NPC
+      const fwdXP = -Math.sin(entity.heading);
+      const fwdZP = -Math.cos(entity.heading);
+      const dotP = dxP * fwdXP + dzP * fwdZP;
+
+      // If dot > 0, player is in front. If dot > distance*0.7, player is roughly directly in front.
+      if (dotP > 0) {
+        const distP = Math.sqrt(distSq);
+        if (dotP > distP * 0.8) {
+          entity.behaviorState = 'stopping';
+          return entity;
+        }
+      }
+    }
+  }
+
+  // Traffic light and stop sign check — when approaching an intersection
   const lightCheck = checkTrafficLight(entity, trafficState);
   if (lightCheck.shouldStop) {
     entity.behaviorState = 'stopping';
@@ -121,7 +146,7 @@ function drivingTick(entity, delta, trafficState) {
 /**
  * Stopping: decelerate to 0.
  */
-function stoppingTick(entity, delta, trafficState) {
+function stoppingTick(entity, delta, trafficState, playerPosition) {
   entity.speed = Math.max(0, entity.speed - DECEL_RATE * delta);
 
   // Still move while decelerating
@@ -132,6 +157,17 @@ function stoppingTick(entity, delta, trafficState) {
 
   if (entity.speed <= 0) {
     entity.speed = 0;
+
+    // If stopped at a stop sign, mark it so we can proceed
+    const lightCheck = checkTrafficLight(entity, trafficState);
+    if (lightCheck.isStopSign) {
+      if (!entity.stateData.stopSignWaitTimer) {
+        entity.stateData.stopSignWaitTimer = 0;
+      }
+      entity.behaviorState = 'stopped';
+      return entity;
+    }
+
     entity.behaviorState = 'stopped';
   }
 
@@ -139,13 +175,21 @@ function stoppingTick(entity, delta, trafficState) {
 }
 
 /**
- * Stopped: wait for green light.
+ * Stopped: wait for green light or for stop sign timer.
  */
 function stoppedTick(entity, delta, trafficState) {
   entity.speed = 0;
 
   const lightCheck = checkTrafficLight(entity, trafficState);
-  if (!lightCheck.shouldStop) {
+  if (lightCheck.isStopSign) {
+    entity.stateData.stopSignWaitTimer += delta;
+    if (entity.stateData.stopSignWaitTimer > 2.0) { // wait 2 seconds
+      entity.stateData.clearedStopSigns = entity.stateData.clearedStopSigns || {};
+      entity.stateData.clearedStopSigns[lightCheck.intKey] = true;
+      entity.behaviorState = 'driving';
+      entity.stateData.stopSignWaitTimer = 0;
+    }
+  } else if (!lightCheck.shouldStop) {
     entity.behaviorState = 'driving';
   }
 
@@ -252,11 +296,9 @@ function checkTrafficLight(entity, trafficState) {
   const clampedRow = Math.max(0, Math.min(4, row));
   const clampedCol = Math.max(0, Math.min(4, col));
 
-  // Only interior intersections (1-3) have traffic lights
+  // Only interior intersections (1-3) have traffic lights. Perimeters have stop signs.
   const isInterior = clampedRow >= 1 && clampedRow <= 3 && clampedCol >= 1 && clampedCol <= 3;
-  if (!isInterior) {
-    return { shouldStop: false };
-  }
+  const intKey = `${clampedRow},${clampedCol}`;
 
   const intX = -WORLD_HALF + halfRoad + clampedCol * stride;
   const intZ = -WORLD_HALF + halfRoad + clampedRow * stride;
@@ -279,6 +321,15 @@ function checkTrafficLight(entity, trafficState) {
   if (dot < 0) {
     // Moving away from intersection
     return { shouldStop: false };
+  }
+
+  if (!isInterior) {
+    // Stop sign logic
+    const cleared = entity.stateData.clearedStopSigns || {};
+    if (cleared[intKey]) {
+      return { shouldStop: false, isStopSign: true, intKey };
+    }
+    return { shouldStop: true, isStopSign: true, intKey };
   }
 
   // Check light state

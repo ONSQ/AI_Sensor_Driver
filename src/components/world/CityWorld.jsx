@@ -13,6 +13,7 @@ import useVehicleStore from '../../stores/useVehicleStore.js';
 import useGameStore from '../../stores/useGameStore.js';
 import { tickVehiclePhysics } from '../../systems/vehicle/vehiclePhysics.js';
 import { buildCollisionData, resolveCollisions } from '../../systems/vehicle/collisions.js';
+import { evaluateDrivingRules } from '../../systems/vehicle/drivingRules.js';
 import { buildSensorTargets } from '../../systems/sensors/sensorTargets.js';
 import Ground from './Ground.jsx';
 import Roads from './Roads.jsx';
@@ -68,10 +69,15 @@ export default function CityWorld({ seed = 12345, cameraMode = 'orbit' }) {
     // Vehicle physics tick → collision resolution → scoring
     const vState = useVehicleStore.getState();
     const candidateState = tickVehiclePhysics(vState, vState.inputs, delta);
-    const { state: correctedState, scoreDelta } = resolveCollisions(candidateState, collisionData);
+    const { state: correctedState, scoreDelta: collisionScore } = resolveCollisions(candidateState, collisionData);
+
+    // Evaluate traffic laws
+    const drivingScoreDelta = evaluateDrivingRules(correctedState, useTrafficStore.getState(), delta);
+
     vState.applyPhysicsState(correctedState);
-    if (scoreDelta !== 0) {
-      useGameStore.getState().addScore(scoreDelta);
+    const totalScoreDelta = collisionScore + drivingScoreDelta;
+    if (totalScoreDelta !== 0) {
+      useGameStore.getState().addScore(totalScoreDelta);
     }
 
     // Waypoint proximity check
