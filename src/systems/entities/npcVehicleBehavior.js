@@ -47,7 +47,7 @@ export function tickNpcVehicle(entity, delta, trafficState, playerPosition) {
 /**
  * Driving: move forward, follow route, check traffic lights.
  */
-function drivingTick(entity, delta, trafficState) {
+function drivingTick(entity, delta, trafficState, playerPosition) {
   const { route, stateData } = entity;
 
   // Accelerate to target speed
@@ -65,12 +65,12 @@ function drivingTick(entity, delta, trafficState) {
   entity.position[0] += moveX;
   entity.position[2] += moveZ;
 
-  // Boundary wrapping — if out of bounds, warp to opposite side
+  // Boundary wrapping — when out of bounds, wrap to opposite side without reversing heading
   if (Math.abs(entity.position[0]) > BOUNDARY) {
-    entity.position[0] = -Math.sign(entity.position[0]) * (BOUNDARY - 5);
+    entity.position[0] = Math.sign(entity.position[0]) * -BOUNDARY;
   }
   if (Math.abs(entity.position[2]) > BOUNDARY) {
-    entity.position[2] = -Math.sign(entity.position[2]) * (BOUNDARY - 5);
+    entity.position[2] = Math.sign(entity.position[2]) * -BOUNDARY;
   }
 
   // Route following — check if near current waypoint
@@ -221,12 +221,12 @@ function turningTick(entity, delta) {
   entity.position[0] += -Math.sin(entity.heading) * entity.speed * delta;
   entity.position[2] += -Math.cos(entity.heading) * entity.speed * delta;
 
-  // Boundary wrapping
+  // Boundary wrapping 
   if (Math.abs(entity.position[0]) > BOUNDARY) {
-    entity.position[0] = -Math.sign(entity.position[0]) * (BOUNDARY - 5);
+    entity.position[0] = Math.sign(entity.position[0]) * -BOUNDARY;
   }
   if (Math.abs(entity.position[2]) > BOUNDARY) {
-    entity.position[2] = -Math.sign(entity.position[2]) * (BOUNDARY - 5);
+    entity.position[2] = Math.sign(entity.position[2]) * -BOUNDARY;
   }
 
   return entity;
@@ -246,26 +246,20 @@ function normalizeAngle(a) {
 }
 
 /**
- * Advance route index, reversing direction if at end.
+ * Advance route index. If at the end, restart to create a loop.
  * @param {object} entity
  */
 function advanceRoute(entity) {
-  const { route, stateData } = entity;
-  if (route.length === 0) return;
+  const { route } = entity;
+  if (!route || route.length === 0) return;
 
-  const dir = stateData.routeDirection || 1;
-  entity.routeIndex += dir;
+  entity.routeIndex += 1;
 
-  // Reverse at route boundaries
+  // Loop route
   if (entity.routeIndex >= route.length) {
-    entity.routeIndex = route.length - 2;
-    stateData.routeDirection = -1;
-  } else if (entity.routeIndex < 0) {
-    entity.routeIndex = 1;
-    stateData.routeDirection = 1;
+    entity.routeIndex = 0; // go back to start
   }
 
-  // Clamp just in case
   entity.routeIndex = Math.max(0, Math.min(route.length - 1, entity.routeIndex));
 }
 

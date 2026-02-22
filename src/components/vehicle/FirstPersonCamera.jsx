@@ -3,18 +3,26 @@
 // Smooth lerp interpolation follows vehicle heading.
 // ============================================================
 
-import { useRef } from 'react';
-import { useFrame, useThree } from '@react-three/fiber';
+import { useRef, useEffect } from 'react';
+import { useFrame } from '@react-three/fiber';
+import { PerspectiveCamera } from '@react-three/drei';
 import useVehicleStore from '../../stores/useVehicleStore.js';
 import { VEHICLE_DIMS, CAMERA } from '../../constants/vehicle.js';
 
-export default function FirstPersonCamera({ enabled = true }) {
-  const { camera } = useThree();
+export default function FirstPersonCamera() {
+  const cameraRef = useRef();
   const targetPos = useRef(null);
   const targetLookAt = useRef(null);
 
+  // Clear target position on mount so it snaps directly to the first correct position.
+  useEffect(() => {
+    targetPos.current = null;
+    targetLookAt.current = null;
+  }, []);
+
   useFrame(() => {
-    if (!enabled) return;
+    const camera = cameraRef.current;
+    if (!camera) return;
 
     const { position, heading } = useVehicleStore.getState();
 
@@ -79,5 +87,5 @@ export default function FirstPersonCamera({ enabled = true }) {
     }
   });
 
-  return null;
+  return <PerspectiveCamera ref={cameraRef} makeDefault fov={CAMERA.FIRST_PERSON_FOV} />;
 }

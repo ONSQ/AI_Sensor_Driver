@@ -50,11 +50,11 @@ function walkingTick(entity, delta) {
   if (stateData.roadAxis === 'ew') {
     // Walking east/west => move along X
     entity.position[0] += stateData.direction * dist;
-    entity.heading = stateData.direction > 0 ? 0 : Math.PI;
+    entity.heading = stateData.direction > 0 ? -Math.PI / 2 : Math.PI / 2;
   } else {
     // Walking north/south => move along Z
     entity.position[2] += stateData.direction * dist;
-    entity.heading = stateData.direction > 0 ? Math.PI / 2 : -Math.PI / 2;
+    entity.heading = stateData.direction > 0 ? 0 : Math.PI;
   }
 
   entity.speed = speed;
@@ -160,11 +160,11 @@ function crossingTick(entity, delta) {
   if (stateData.roadAxis === 'ew') {
     // On EW sidewalk => cross in Z direction (north/south)
     entity.position[2] += stateData.crossDirection * dist;
-    entity.heading = stateData.crossDirection > 0 ? Math.PI / 2 : -Math.PI / 2;
+    entity.heading = stateData.crossDirection > 0 ? 0 : Math.PI;
   } else {
     // On NS sidewalk => cross in X direction (east/west)
     entity.position[0] += stateData.crossDirection * dist;
-    entity.heading = stateData.crossDirection > 0 ? 0 : Math.PI;
+    entity.heading = stateData.crossDirection > 0 ? -Math.PI / 2 : Math.PI / 2;
   }
 
   // Clamp to world bounds
@@ -203,10 +203,10 @@ function jaywalkingTick(entity, delta) {
 
     if (stateData.roadAxis === 'ew') {
       entity.position[0] += stateData.direction * dist;
-      entity.heading = stateData.direction > 0 ? 0 : Math.PI;
+      entity.heading = stateData.direction > 0 ? -Math.PI / 2 : Math.PI / 2;
     } else {
       entity.position[2] += stateData.direction * dist;
-      entity.heading = stateData.direction > 0 ? Math.PI / 2 : -Math.PI / 2;
+      entity.heading = stateData.direction > 0 ? 0 : Math.PI;
     }
 
     // Boundary check
@@ -234,10 +234,10 @@ function jaywalkingTick(entity, delta) {
 
   if (stateData.roadAxis === 'ew') {
     entity.position[2] += stateData.crossDirection * dist;
-    entity.heading = stateData.crossDirection > 0 ? Math.PI / 2 : -Math.PI / 2;
+    entity.heading = stateData.crossDirection > 0 ? 0 : Math.PI;
   } else {
     entity.position[0] += stateData.crossDirection * dist;
-    entity.heading = stateData.crossDirection > 0 ? 0 : Math.PI;
+    entity.heading = stateData.crossDirection > 0 ? -Math.PI / 2 : Math.PI / 2;
   }
 
   entity.position[0] = Math.max(-BOUNDARY, Math.min(BOUNDARY, entity.position[0]));

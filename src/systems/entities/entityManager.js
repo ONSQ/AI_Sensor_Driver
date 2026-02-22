@@ -12,6 +12,7 @@ import {
   ENTITY_COUNTS,
   PEDESTRIAN,
   NPC_VEHICLE,
+  SCHOOL_BUS,
   EMERGENCY,
   ANIMAL,
   BALL,
@@ -60,47 +61,76 @@ function allIntersections() {
 }
 
 /**
- * Build a route of 4-6 intersection positions using nearest-neighbour
- * heuristic starting from the closest interior intersection to `start`.
- * @param {Function} rng  seeded RNG
- * @param {number[]} start  [x, z]
- * @returns {number[][]}  array of [x, z] waypoints
+ * Build a sequence of valid road waypoints to form a driving route.
+ * Constrains the vehicle to follow orthogonal grid paths, keeping them on the road.
+ * @param {Function} rng
+ * @param {number[]} start
+ * @param {boolean} targetSchools
+ * @returns {number[][]}
  */
-function buildDrivingRoute(rng, start) {
-  // Collect interior intersections (rows/cols 1-3)
-  const interior = [];
-  for (let r = 1; r <= 3; r++) {
-    for (let c = 1; c <= 3; c++) {
-      const [x, , z] = getIntersectionCenter(r, c);
-      interior.push([x, z]);
-    }
+function buildGridRoute(rng, start, targetSchools = false) {
+  const ints = allIntersections();
+  const startPos = nearestIntersection(start[0], start[2]);
+  let current = ints.find(i => i.pos[0] === startPos[0] && i.pos[1] === startPos[1]) || ints[0];
+
+  const route = [];
+  let prev = null;
+  const numSteps = randInt(rng, 5, 10);
+
+  let targetInts = [];
+  if (targetSchools) {
+    targetInts = ints.filter(int => {
+      const rL = int.pos[0] - GRID.BLOCK_SIZE / 2;
+      const rR = int.pos[0] + GRID.BLOCK_SIZE / 2;
+      const rT = int.pos[1] - GRID.BLOCK_SIZE / 2;
+      const rB = int.pos[1] + GRID.BLOCK_SIZE / 2;
+      return [
+        getZoneAt(rL, rT), getZoneAt(rR, rT),
+        getZoneAt(rL, rB), getZoneAt(rR, rB)
+      ].includes('school');
+    });
   }
 
-  // Pick 4-6 random candidates
-  const count = randInt(rng, 4, 6);
-  const shuffled = interior.slice().sort(() => rng() - 0.5);
-  const candidates = shuffled.slice(0, count);
+  for (let step = 0; step < numSteps; step++) {
+    // Determine lane offset based on incoming direction
+    let offsetX = 0;
+    let offsetZ = 0;
+    if (prev) {
+      if (current.row > prev.row) offsetX = -NPC_VEHICLE.LANE_OFFSET; // South => -X offset
+      else if (current.row < prev.row) offsetX = NPC_VEHICLE.LANE_OFFSET; // North => +X offset
+      else if (current.col > prev.col) offsetZ = NPC_VEHICLE.LANE_OFFSET; // East => +Z offset
+      else if (current.col < prev.col) offsetZ = -NPC_VEHICLE.LANE_OFFSET; // West => -Z offset
+    }
 
-  // Sort by nearest-neighbour from start
-  const route = [];
-  let current = start;
-  const remaining = [...candidates];
+    // Push the lane-offset intersection center
+    route.push([current.pos[0] + offsetX, current.pos[1] + offsetZ]);
 
-  while (remaining.length > 0) {
-    let bestIdx = 0;
-    let bestDist = Infinity;
-    for (let i = 0; i < remaining.length; i++) {
-      const dx = remaining[i][0] - current[0];
-      const dz = remaining[i][1] - current[1];
-      const d = dx * dx + dz * dz;
-      if (d < bestDist) {
-        bestDist = d;
-        bestIdx = i;
+    const neighbors = [];
+    if (current.row > 0) neighbors.push(ints.find(i => i.row === current.row - 1 && i.col === current.col));
+    if (current.row < 4) neighbors.push(ints.find(i => i.row === current.row + 1 && i.col === current.col));
+    if (current.col > 0) neighbors.push(ints.find(i => i.row === current.row && i.col === current.col - 1));
+    if (current.col < 4) neighbors.push(ints.find(i => i.row === current.row && i.col === current.col + 1));
+
+    let validNeighbors = neighbors.filter(n => n && (!prev || n.row !== prev.row || n.col !== prev.col));
+    if (validNeighbors.length === 0) validNeighbors = neighbors;
+
+    prev = current;
+
+    // Bias towards school grounds if asked
+    if (targetSchools && targetInts.length > 0) {
+      validNeighbors.sort((a, b) => {
+        const distA = Math.min(...targetInts.map(ti => Math.abs(ti.row - a.row) + Math.abs(ti.col - a.col)));
+        const distB = Math.min(...targetInts.map(ti => Math.abs(ti.row - b.row) + Math.abs(ti.col - b.col)));
+        return distA - distB;
+      });
+      // 80% chance to pick best path toward school
+      if (randBool(rng, 0.8)) {
+        current = validNeighbors[0];
+        continue;
       }
     }
-    route.push(remaining[bestIdx]);
-    current = remaining[bestIdx];
-    remaining.splice(bestIdx, 1);
+
+    current = randPick(rng, validNeighbors);
   }
 
   return route;
@@ -248,11 +278,11 @@ function spawnParkedVehicles(rng, segments) {
       if (isHoriz) {
         x = seg.center[0] + t;
         z = seg.center[2] + offset;
-        heading = side > 0 ? 0 : Math.PI; // face along road
+        heading = side > 0 ? -Math.PI / 2 : Math.PI / 2; // East/West
       } else {
         x = seg.center[0] + offset;
         z = seg.center[2] + t;
-        heading = side > 0 ? Math.PI / 2 : -Math.PI / 2;
+        heading = side > 0 ? 0 : Math.PI; // North/South
       }
 
       attempts++;
@@ -316,19 +346,17 @@ function spawnMovingVehicles(rng, segments) {
     if (isHoriz) {
       x = seg.center[0] + t;
       z = seg.center[2] + offset;
-      // On EW roads: +z side drives east (heading ~0), -z side drives west (heading ~PI)
-      heading = side > 0 ? 0 : Math.PI;
+      heading = side > 0 ? -Math.PI / 2 : Math.PI / 2;
     } else {
       x = seg.center[0] + offset;
       z = seg.center[2] + t;
-      // On NS roads: +x side drives south (heading ~PI/2), -x side drives north (heading ~-PI/2)
-      heading = side > 0 ? Math.PI / 2 : -Math.PI / 2;
+      heading = side > 0 ? 0 : Math.PI;
     }
 
     if (tooCloseToPlayer(x, z)) continue;
 
     const startXZ = [x, z];
-    const route = buildDrivingRoute(rng, startXZ);
+    const route = buildGridRoute(rng, startXZ);
 
     entities.push({
       id: uid('npc'),
@@ -365,6 +393,68 @@ function spawnMovingVehicles(rng, segments) {
 }
 
 /**
+ * Spawn school buses targeting school zones.
+ */
+function spawnSchoolBuses(rng, segments) {
+  const entities = [];
+  const count = ENTITY_COUNTS.SCHOOL_BUSES || 1;
+
+  for (let i = 0; i < count; i++) {
+    const seg = randPick(rng, segments);
+    const isHoriz = seg.orientation === 'horizontal';
+    const side = randBool(rng) ? 1 : -1;
+    const offset = side * NPC_VEHICLE.LANE_OFFSET;
+    const t = randRange(rng, -seg.length / 4, seg.length / 4);
+
+    let x, z, heading;
+    if (isHoriz) {
+      x = seg.center[0] + t;
+      z = seg.center[2] + offset;
+      heading = side > 0 ? -Math.PI / 2 : Math.PI / 2;
+    } else {
+      x = seg.center[0] + offset;
+      z = seg.center[2] + t;
+      heading = side > 0 ? 0 : Math.PI;
+    }
+
+    if (tooCloseToPlayer(x, z)) continue;
+
+    const startXZ = [x, z];
+    const route = buildGridRoute(rng, startXZ, true);
+
+    entities.push({
+      id: uid('bus'),
+      type: 'schoolbus',
+      subtype: 'moving',
+      position: [x, 0, z],
+      heading,
+      speed: SCHOOL_BUS.DRIVE_SPEED,
+      behaviorState: 'driving',
+      behaviorTimer: 0,
+      stateData: { routeDirection: 1 },
+      route,
+      routeIndex: 0,
+      triggered: false,
+      triggerPosition: null,
+      thermalTemp: SCHOOL_BUS.THERMAL_TEMP,
+      soundType: SCHOOL_BUS.SOUND_TYPE,
+      soundIntensity: SCHOOL_BUS.SOUND_INTENSITY,
+      sensorClass: SCHOOL_BUS.SENSOR_CLASS,
+      bounds: {
+        hw: SCHOOL_BUS.BODY_WIDTH / 2,
+        hd: SCHOOL_BUS.BODY_LENGTH / 2,
+        h: SCHOOL_BUS.BODY_HEIGHT,
+      },
+      collisionRadius: Math.max(SCHOOL_BUS.COLLISION_HW, SCHOOL_BUS.COLLISION_HL),
+      visible: true,
+      color: SCHOOL_BUS.COLOR || "#FFCC00",
+    });
+  }
+
+  return entities;
+}
+
+/**
  * Spawn the emergency vehicle on a perimeter road with a route
  * through interior intersections.
  * @param {Function} rng
@@ -385,7 +475,7 @@ function spawnEmergencyVehicle(rng) {
   const start = randPick(rng, perimeterInts);
 
   // Build a route through interior intersections
-  const route = buildDrivingRoute(rng, start);
+  const route = buildGridRoute(rng, start);
 
   // Determine initial heading toward first route waypoint
   let heading = 0;
@@ -645,6 +735,7 @@ export function spawnEntities(seed, worldData) {
   const pedestrians = spawnPedestrians(rng, segments);
   const parked = spawnParkedVehicles(rng, segments);
   const moving = spawnMovingVehicles(rng, segments);
+  const schoolbuses = spawnSchoolBuses(rng, segments);
   const emergency = spawnEmergencyVehicle(rng);
   const animals = spawnAnimals(rng, segments);
   const balls = spawnBallTriggers(rng, parked);
@@ -653,6 +744,7 @@ export function spawnEntities(seed, worldData) {
     ...pedestrians,
     ...parked,
     ...moving,
+    ...schoolbuses,
     ...emergency,
     ...animals,
     ...balls,
@@ -680,6 +772,7 @@ export function tickEntities(entities, delta, trafficState, playerPosition) {
         entities[i] = tickPedestrian(e, dt, trafficState);
         break;
       case 'npcVehicle':
+      case 'schoolbus':
         entities[i] = tickNpcVehicle(e, dt, trafficState, playerPosition);
         break;
       case 'animal':

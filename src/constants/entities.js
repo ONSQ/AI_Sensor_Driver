@@ -12,6 +12,7 @@ export const ENTITY_COUNTS = {
   PEDESTRIANS: 12,          // ~3 per quadrant
   NPC_VEHICLES_PARKED: 10,
   NPC_VEHICLES_MOVING: 6,
+  SCHOOL_BUSES: 1,
   ANIMALS: 3,               // 2 dogs + 1 deer
   EMERGENCY_VEHICLES: 1,
   BALL_TRIGGERS: 2,
@@ -56,9 +57,30 @@ export const NPC_VEHICLE = {
   SOUND_INTENSITY_MOVING: 0.5,
   SOUND_INTENSITY_PARKED: 0,
   SENSOR_CLASS: 'vehicle',
-  // NPC vehicle color palette
-  COLORS: ['#553344', '#334455', '#445533', '#554433', '#333355', '#555544'],
-  PARKED_COLORS: ['#3a2a2a', '#2a2a3a', '#2a3a2a', '#3a3a2a', '#2a2a2a'],
+  // NPC vehicle color palette (brighter colors)
+  COLORS: ['#ff4444', '#44aa44', '#3366ff', '#ffaacc', '#55ffee', '#ff8822'],
+  PARKED_COLORS: ['#aa3333', '#33aa33', '#2255cc', '#cc88aa', '#33ccbb', '#cc6611'],
+};
+
+// --- School Bus ---
+export const SCHOOL_BUS = {
+  BODY_LENGTH: 8.0,
+  BODY_WIDTH: 2.0,
+  BODY_HEIGHT: 2.2,
+  CABIN_LENGTH: 3.0,
+  CABIN_WIDTH: 2.0,
+  CABIN_HEIGHT: 2.2,
+  BODY_Y_OFFSET: 0.5,
+  DRIVE_SPEED: 6.0,           // m/s
+  COLLISION_HW: 1.0,
+  COLLISION_HL: 4.0,
+  STOP_DISTANCE: 8,
+  APPROACH_DISTANCE: 25,
+  THERMAL_TEMP: 45,
+  SOUND_TYPE: 'engine',
+  SOUND_INTENSITY: 0.6,
+  SENSOR_CLASS: 'vehicle',
+  COLOR: '#FFD700', // School bus yellow
 };
 
 // --- Emergency Vehicle ---

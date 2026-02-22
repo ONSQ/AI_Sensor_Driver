@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { useControls } from 'leva';
 import CityWorld from './components/world/CityWorld.jsx';
@@ -11,6 +11,7 @@ import RearviewMirror from './components/vehicle/RearviewMirror.jsx';
 import InputHandler from './components/vehicle/InputHandler.jsx';
 import CockpitHUD from './components/ui/CockpitHUD.jsx';
 import WaypointCompass from './components/ui/WaypointCompass.jsx';
+import DirectionCompass from './components/ui/DirectionCompass.jsx';
 import LidarPanel from './components/sensors/LidarPanel.jsx';
 import ThermalPanel from './components/sensors/ThermalPanel.jsx';
 import AudioPanel from './components/sensors/AudioPanel.jsx';
@@ -25,6 +26,14 @@ import { CAMERA } from './constants/vehicle.js';
  */
 function VehicleOrbitControls() {
   const controlsRef = useRef();
+  const { camera } = useThree();
+
+  useEffect(() => {
+    if (camera.fov !== CAMERA.ORBIT_FOV) {
+      camera.fov = CAMERA.ORBIT_FOV;
+      camera.updateProjectionMatrix();
+    }
+  }, [camera]);
 
   useFrame(() => {
     if (!controlsRef.current) return;
@@ -93,8 +102,8 @@ export default function App() {
     <div style={{ width: '100vw', height: '100vh' }}>
       <Canvas
         camera={{
-          position: isFirstPerson ? [0, 1.5, 0] : [0, 150, 150],
-          fov: isFirstPerson ? CAMERA.FIRST_PERSON_FOV : CAMERA.ORBIT_FOV,
+          position: [0, 150, 150],
+          fov: CAMERA.ORBIT_FOV,
         }}
         gl={{ antialias: true, alpha: false }}
         dpr={[1, 2]}
@@ -126,8 +135,8 @@ export default function App() {
         <CityWorld seed={debugSeed} cameraMode={cameraMode} />
 
         {/* Camera controllers — only one active at a time */}
-        <FirstPersonCamera enabled={isFirstPerson} />
-        <ThirdPersonCamera enabled={isThirdPerson} />
+        {isFirstPerson && <FirstPersonCamera />}
+        {isThirdPerson && <ThirdPersonCamera />}
         {isOrbit && <VehicleOrbitControls />}
 
         {/* Rearview mirror (first-person only) */}
@@ -142,6 +151,9 @@ export default function App() {
 
       {/* Waypoint compass (first-person + third-person) */}
       <WaypointCompass visible={!isOrbit} />
+
+      {/* Direction compass (always visible including orbital) */}
+      <DirectionCompass visible={true} />
 
       {/* Sensor overlays (first-person + third-person) */}
       <LidarPanel visible={!isOrbit} />

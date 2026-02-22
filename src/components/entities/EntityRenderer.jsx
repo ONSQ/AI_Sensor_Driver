@@ -6,6 +6,7 @@
 import useEntityStore from '../../stores/useEntityStore.js';
 import Pedestrian from './Pedestrian.jsx';
 import NpcVehicle from './NpcVehicle.jsx';
+import SchoolBus from './SchoolBus.jsx';
 import EmergencyVehicle from './EmergencyVehicle.jsx';
 import Animal from './Animal.jsx';
 import Ball from './Ball.jsx';
@@ -13,6 +14,7 @@ import Ball from './Ball.jsx';
 const COMPONENT_MAP = {
   pedestrian: Pedestrian,
   npcVehicle: NpcVehicle,
+  schoolbus: SchoolBus,
   emergency: EmergencyVehicle,
   animal: Animal,
   ball: Ball,

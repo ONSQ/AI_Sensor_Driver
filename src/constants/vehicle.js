@@ -29,10 +29,10 @@ export const VEHICLE_DIMS = {
 
 // Arcade physics tuning — no rigid body engine
 export const VEHICLE_PHYSICS = {
-  MAX_SPEED: 20.12,       // ~45 mph in m/s
-  ACCELERATION: 6.0,      // m/s^2 when W/up pressed
-  BRAKE_DECEL: 12.0,      // m/s^2 when S/down pressed (braking)
-  REVERSE_MAX_SPEED: 3.0, // m/s max reverse
+  MAX_SPEED: 26.82,       // ~60 mph in m/s
+  ACCELERATION: 10.0,     // m/s^2 when W/up pressed
+  BRAKE_DECEL: 24.0,      // m/s^2 when S/down pressed (braking)
+  REVERSE_MAX_SPEED: 8.0, // m/s max reverse
   FRICTION_DECEL: 2.0,    // m/s^2 natural deceleration (no input)
 
   // Steering
@@ -72,7 +72,7 @@ export const CAMERA = {
   FIRST_PERSON_FOV: 75,     // wider FOV for driving immersion
   THIRD_PERSON_FOV: 60,     // moderate FOV for chase cam
   ORBIT_FOV: 50,            // existing orbit FOV
-  LERP_FACTOR: 0.1,         // smooth camera interpolation (0–1, lower = smoother)
+  LERP_FACTOR: 0.99,        // snap camera tighter so mirror doesnt drift up in frame
 
   // Third-person chase camera offsets (relative to vehicle)
   CHASE_DISTANCE: 12,       // meters behind the vehicle

@@ -3,18 +3,25 @@
 // Smooth lerp follow for cinematic driving feel.
 // ============================================================
 
-import { useRef } from 'react';
-import { useFrame, useThree } from '@react-three/fiber';
+import { useRef, useEffect } from 'react';
+import { useFrame } from '@react-three/fiber';
+import { PerspectiveCamera } from '@react-three/drei';
 import useVehicleStore from '../../stores/useVehicleStore.js';
 import { CAMERA } from '../../constants/vehicle.js';
 
-export default function ThirdPersonCamera({ enabled = true }) {
-  const { camera } = useThree();
+export default function ThirdPersonCamera() {
+  const cameraRef = useRef();
   const targetPos = useRef(null);
   const targetLookAt = useRef(null);
 
+  useEffect(() => {
+    targetPos.current = null;
+    targetLookAt.current = null;
+  }, []);
+
   useFrame(() => {
-    if (!enabled) return;
+    const camera = cameraRef.current;
+    if (!camera) return;
 
     const { position, heading } = useVehicleStore.getState();
 
@@ -71,5 +78,5 @@ export default function ThirdPersonCamera({ enabled = true }) {
     }
   });
 
-  return null;
+  return <PerspectiveCamera ref={cameraRef} makeDefault fov={CAMERA.THIRD_PERSON_FOV} />;
 }

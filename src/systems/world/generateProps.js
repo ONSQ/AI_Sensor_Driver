@@ -127,7 +127,7 @@ export function generateProps(zone, bounds, center, rng) {
 function generateConstructionProps(bounds, rng) {
   const props = [];
   const { minX, maxX, minZ, maxZ } = bounds;
-  const margin = 1; // 1m inside block edge (adjacent to sidewalk)
+  const margin = -2.5; // push cones outside block edge, into the street lane
 
   // Place cones along 2 random edges of the block
   const edges = [
@@ -165,6 +165,17 @@ function generateConstructionProps(bounds, rng) {
         rotation: 0,
       });
     }
+
+    // Add Worker with a Stop Sign to direct traffic near the cones
+    if (randBool(rng, 0.7)) {
+      const wOffset = rangeMin - 1.5;
+      const wPos = edge.axis === 'x' ? [wOffset, 0, edge.fixed] : [edge.fixed, 0, wOffset];
+      props.push({
+        type: 'worker_with_sign',
+        position: wPos,
+        rotation: edge.axis === 'x' ? Math.PI / 2 : 0,
+      });
+    }
   }
 
   // Place 1-3 barriers
@@ -178,6 +189,62 @@ function generateConstructionProps(bounds, rng) {
         randRange(rng, minZ + 3, maxZ - 3),
       ],
       rotation: randBool(rng, 0.5) ? 0 : Math.PI / 2,
+    });
+  }
+
+  // --- Large Props (Excavators & Dirt Piles) ---
+  const cx = (minX + maxX) / 2;
+  const cz = (minZ + maxZ) / 2;
+
+  // Add an Excavator near the center
+  props.push({
+    type: 'excavator',
+    position: [
+      cx + randRange(rng, -5, 5),
+      0,
+      cz + randRange(rng, -5, 5),
+    ],
+    rotation: randRange(rng, 0, Math.PI * 2),
+  });
+
+  // Add a Bulldozer
+  props.push({
+    type: 'bulldozer',
+    position: [
+      cx + randRange(rng, -5, 5),
+      0,
+      cz + randRange(rng, -5, 5),
+    ],
+    rotation: randRange(rng, 0, Math.PI * 2),
+  });
+
+  // Add 1-2 dirt piles
+  const pileCount = Math.floor(randRange(rng, 1, 3));
+  for (let i = 0; i < pileCount; i++) {
+    props.push({
+      type: 'dirt_pile',
+      position: [
+        cx + randRange(rng, -10, 10),
+        0,
+        cz + randRange(rng, -10, 10),
+      ],
+      rotation: randRange(rng, 0, Math.PI * 2),
+      scale: randRange(rng, 0.8, 1.5),
+    });
+  }
+
+  // Add a work crew (3-5 workers)
+  const workerCount = Math.floor(randRange(rng, 3, 6));
+  for (let i = 0; i < workerCount; i++) {
+    // Spawn them somewhat near the center/excavator
+    props.push({
+      type: 'construction_worker',
+      position: [
+        cx + randRange(rng, -6, 6),
+        0,
+        cz + randRange(rng, -6, 6),
+      ],
+      rotation: randRange(rng, 0, Math.PI * 2),
     });
   }
 
