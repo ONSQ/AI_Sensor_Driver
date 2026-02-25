@@ -106,6 +106,7 @@ export default function RearviewMirror({ enabled = true }) {
     if (!enabled || !mirrorGroupRef.current) return;
 
     // ---- Position mirror group in camera-local space every frame ----
+    mainCamera.updateMatrixWorld();
     mainCamera.getWorldPosition(_camPos);
     mainCamera.getWorldQuaternion(_camQuat);
 

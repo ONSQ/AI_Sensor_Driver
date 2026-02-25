@@ -19,6 +19,8 @@ import CameraOverlay from './components/sensors/CameraOverlay.jsx';
 import SensorStatusBar from './components/sensors/SensorStatusBar.jsx';
 import useSensorStore from './stores/useSensorStore.js';
 import { CAMERA } from './constants/vehicle.js';
+import AIController from './components/ai/AIController.jsx';
+import GlassBoxUI from './components/glassbox/GlassBoxUI.jsx';
 
 /**
  * OrbitControls that follows the vehicle position.
@@ -64,6 +66,11 @@ export default function App() {
   // Camera mode toggle
   const { 'Camera Mode': cameraMode } = useControls('Camera', {
     'Camera Mode': { options: ['orbit', 'third-person', 'first-person'], value: 'orbit' },
+  });
+
+  // AI mode toggle
+  const { 'AI Driver': aiDriver } = useControls('Autopilot', {
+    'AI Driver': { value: true },
   });
 
   // Sensor controls
@@ -143,8 +150,11 @@ export default function App() {
         <RearviewMirror enabled={isFirstPerson} />
       </Canvas>
 
-      {/* Keyboard input handler (always active) */}
+      {/* Keyboard input handler (always active, but AI can override) */}
       <InputHandler />
+
+      {/* AI Controller Headless Component */}
+      <AIController enabled={aiDriver} />
 
       {/* Cockpit HUD (first-person + third-person) */}
       <CockpitHUD visible={!isOrbit} />
@@ -161,6 +171,9 @@ export default function App() {
       <AudioPanel visible={!isOrbit} />
       <CameraOverlay visible={!isOrbit} />
       <SensorStatusBar visible={!isOrbit} />
+
+      {/* Glass Box Educational Visualization Panel */}
+      <GlassBoxUI visible={aiDriver} />
 
       {/* Debug HUD overlay */}
       <div style={{

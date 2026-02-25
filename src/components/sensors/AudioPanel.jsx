@@ -137,8 +137,8 @@ export default function AudioPanel({ visible = true }) {
   return (
     <DraggablePanel
       title="AUDIO"
-      defaultX={typeof window !== 'undefined' ? window.innerWidth - 220 : 600}
-      defaultY={80}
+      defaultX={20}
+      defaultY={520}
       defaultWidth={200}
       defaultHeight={220}
       color="#00ff88"
