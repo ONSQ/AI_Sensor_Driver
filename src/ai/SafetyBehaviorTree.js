@@ -12,7 +12,8 @@ export class SafetyBehaviorTree {
     const overrides = [];
 
     // Rule 1: Imminent Collision
-    if (worldState.distanceToObstacle < 3.0) {
+    // Needs to be > 5m to have enough physical space to stop from 10m/s
+    if (worldState.distanceToObstacle < 6.0) {
       overrides.push({
         action: 'EMERGENCY_BRAKE',
         reason: `Imminent collision at ${worldState.distanceToObstacle.toFixed(1)}m`,
@@ -29,12 +30,30 @@ export class SafetyBehaviorTree {
       });
     }
 
+    // Rule 2.5: Stop Sign Yield
+    if (worldState.approachingStopSign && worldState.distanceToIntersection < 10) {
+      overrides.push({
+        action: 'STOP',
+        reason: 'Yielding at Stop Sign',
+        priority: 2
+      });
+    }
+
     // Rule 3: Pedestrian Crossing
     if (worldState.pedestrianInCrosswalk) {
       overrides.push({
         action: 'STOP',
         reason: 'Pedestrian yielding',
         priority: 3
+      });
+    }
+
+    // Rule 4: Emergency Vehicle Siren
+    if (worldState.emergencySirenHeard) {
+      overrides.push({
+        action: 'RIGHT', // Simulate pulling over to the right
+        reason: 'Yielding to Emergency Siren',
+        priority: 4
       });
     }
 

@@ -20,6 +20,7 @@ import SensorStatusBar from './components/sensors/SensorStatusBar.jsx';
 import useSensorStore from './stores/useSensorStore.js';
 import { CAMERA } from './constants/vehicle.js';
 import AIController from './components/ai/AIController.jsx';
+import NPCTrafficController from './components/ai/NPCTrafficController.jsx';
 import GlassBoxUI from './components/glassbox/GlassBoxUI.jsx';
 
 /**
@@ -70,7 +71,7 @@ export default function App() {
 
   // AI mode toggle
   const { 'AI Driver': aiDriver } = useControls('Autopilot', {
-    'AI Driver': { value: true },
+    'AI Driver': { value: false },
   });
 
   // Sensor controls
@@ -140,6 +141,9 @@ export default function App() {
 
         {/* World + Vehicle */}
         <CityWorld seed={debugSeed} cameraMode={cameraMode} />
+
+        {/* AI NPCs */}
+        <NPCTrafficController />
 
         {/* Camera controllers — only one active at a time */}
         {isFirstPerson && <FirstPersonCamera />}

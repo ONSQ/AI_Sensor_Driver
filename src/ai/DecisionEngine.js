@@ -29,19 +29,49 @@ export class DecisionEngine {
             }
 
             if (action.id === 'BRAKE') {
-                score += !state.pathClear ? 80 : -40; // High utility to brake if path blocked
+                score += !state.pathClear ? 100 : -40; // Extremely high utility to brake if path blocked
+
+                // Also gently brake to slow down for sharp turns if we are going too fast
+                if (!state.alignedWithWaypoint && state.speed > 12) {
+                    score += 80;
+                }
+
+                // Normal braking for speed limit adherence
+                if (state.speed > state.speedLimit) {
+                    score += 50;
+                }
             }
 
             if (action.id === 'ACCELERATE') {
                 score += (state.pathClear && state.speed < state.speedLimit) ? 40 : -60;
+
+                // Do not accelerate into sharp turns
+                if (!state.alignedWithWaypoint) {
+                    score -= 50;
+                }
             }
 
             if (action.id === 'LEFT' || action.id === 'RIGHT') {
                 // Simple logic for direction toward waypoint
                 if (state.targetDirection === action.id) {
-                    score += 40;
+                    score += 60; // Make turning highly prioritized when needed
                 } else {
                     score -= 30;
+                }
+
+                // Obstacle avoidance override: If path is blocked, heavily favor turning AWAY from the obstacle
+                // (In a real system, LiDAR would give a left/right clearance heuristic. Here we just try to swerve
+                // in the opposite direction of the waypoint if we are blocked, or strongly favor any turn over straight).
+                if (!state.pathClear && state.speed > 5) {
+                    if (state.targetDirection === action.id) {
+                        // Even if it's the target direction, turning might be better than hitting it straight on
+                        score += 30;
+                    } else if (state.targetDirection === 'STRAIGHT') {
+                        // If waypoint is straight ahead but blocked, pick a direction to swerve
+                        // Default to right for standard right-hand traffic rules where possible
+                        if (action.id === 'RIGHT') score += 50;
+                        if (action.id === 'LEFT') score += 40;
+                    }
                 }
             }
 

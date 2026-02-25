@@ -119,6 +119,7 @@ export function buildSensorTargets(worldData) {
         type: 'traffic_light',
         sensorClass: 'traffic_light',
         position: [...tl.position],
+        axis: tl.axis,
         bounds: { hw: 0.2, hd: 0.2, h: 4.5 },
         thermalTemp: THERMAL.SIGNATURES.traffic_light,
         soundType: 'signal',

@@ -24,7 +24,8 @@ const useVehicleStore = create((set) => ({
   // Input state — set by InputHandler, read by physics tick
   inputs: {
     accelerate: false,   // W or ArrowUp
-    brake: false,        // S or ArrowDown
+    brake: false,        // AI ONLY: Pure brake/hold
+    reverse: false,      // S or ArrowDown (Human Arcade brake+reverse)
     steerLeft: false,    // A or ArrowLeft
     steerRight: false,   // D or ArrowRight
   },
@@ -55,6 +56,7 @@ const useVehicleStore = create((set) => ({
     inputs: {
       accelerate: false,
       brake: false,
+      reverse: false,
       steerLeft: false,
       steerRight: false,
     },

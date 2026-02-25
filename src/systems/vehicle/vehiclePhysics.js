@@ -72,7 +72,7 @@ function clampToWorld(x, z) {
  * Determine gear display string.
  */
 function getGear(speed, inputs) {
-  if (Math.abs(speed) < 0.1 && !inputs.accelerate && !inputs.brake) return 'P';
+  if (Math.abs(speed) < 0.1 && !inputs.accelerate && !inputs.brake && !inputs.reverse) return 'P';
   if (speed < -0.1) return 'R';
   return 'D';
 }
@@ -115,6 +115,14 @@ export function tickVehiclePhysics(state, inputs, delta) {
       speed = Math.min(P.MAX_SPEED, speed + P.ACCELERATION * dt);
     }
   } else if (inputs.brake) {
+    if (speed > 0) {
+      speed = Math.max(0, speed - P.BRAKE_DECEL * dt);
+    } else if (speed < 0) {
+      speed = Math.min(0, speed + P.BRAKE_DECEL * dt);
+    } else {
+      speed = 0;
+    }
+  } else if (inputs.reverse) {
     if (speed > 0) {
       // Braking from forward
       speed = Math.max(0, speed - P.BRAKE_DECEL * dt);

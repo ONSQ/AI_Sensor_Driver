@@ -7,6 +7,8 @@
 
 import * as THREE from 'three';
 import { CAMERA_CV } from '../../constants/sensors.js';
+import useTrafficStore, { deriveLightState } from '../../stores/useTrafficStore.js';
+import { LIGHT_STATE, TRAFFIC_LIGHT_COLORS } from '../../constants/traffic.js';
 import {
   getBlockKeysInRange,
   distanceXZSq,
@@ -127,6 +129,25 @@ export function tickCamera(vehicle, sensorTargets, timeOfDay, weather, buildingA
       const classInfo = CAMERA_CV.CLASSES[t.sensorClass];
       if (!classInfo) continue;
 
+      let finalLabel = classInfo.label;
+      let finalColor = classInfo.color;
+
+      // Extract real-time traffic light state
+      if (t.type === 'traffic_light' && t.axis) {
+        const clock = useTrafficStore.getState().clock;
+        const state = deriveLightState(clock, t.axis);
+        if (state === LIGHT_STATE.RED) {
+          finalLabel = 'T-RED';
+          finalColor = TRAFFIC_LIGHT_COLORS.RED_ON;
+        } else if (state === LIGHT_STATE.YELLOW) {
+          finalLabel = 'T-YELLOW';
+          finalColor = TRAFFIC_LIGHT_COLORS.YELLOW_ON;
+        } else if (state === LIGHT_STATE.GREEN) {
+          finalLabel = 'T-GREEN';
+          finalColor = TRAFFIC_LIGHT_COLORS.GREEN_ON;
+        }
+      }
+
       detections.push({
         x: proj.x - sizeW / 2,
         y: proj.y - sizeH,
@@ -134,8 +155,8 @@ export function tickCamera(vehicle, sensorTargets, timeOfDay, weather, buildingA
         h: sizeH,
         class: t.sensorClass,
         confidence,
-        label: classInfo.label,
-        color: classInfo.color,
+        label: finalLabel,
+        color: finalColor,
         distance: dist,
       });
     }

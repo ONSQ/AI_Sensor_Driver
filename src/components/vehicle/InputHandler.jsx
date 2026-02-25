@@ -11,8 +11,8 @@ import useVehicleStore from '../../stores/useVehicleStore.js';
 const KEY_MAP = {
   KeyW: 'accelerate',
   ArrowUp: 'accelerate',
-  KeyS: 'brake',
-  ArrowDown: 'brake',
+  KeyS: 'reverse',
+  ArrowDown: 'reverse',
   KeyA: 'steerLeft',
   ArrowLeft: 'steerLeft',
   KeyD: 'steerRight',
@@ -44,6 +44,7 @@ export default function InputHandler() {
       const set = useVehicleStore.getState().setInput;
       set('accelerate', false);
       set('brake', false);
+      set('reverse', false);
       set('steerLeft', false);
       set('steerRight', false);
     }
