@@ -6,6 +6,7 @@
 
 import { EMERGENCY } from '../../constants/entities.js';
 import { WORLD_HALF } from '../../constants/world.js';
+import { checkBuildingCollision } from '../vehicle/collisions.js';
 
 const BOUNDARY = WORLD_HALF - 2;
 const WAYPOINT_REACH = 3;         // m — distance to consider waypoint reached
@@ -20,9 +21,10 @@ const ACCEL_RATE = 6.0;           // m/s^2
  *
  * @param {object} entity - emergency entity
  * @param {number} delta  - seconds since last frame
+ * @param {object} collisionData
  * @returns {object} mutated entity
  */
-export function tickEmergency(entity, delta) {
+export function tickEmergency(entity, delta, collisionData) {
   // ---- Flash/siren toggle ----
   entity.flashTimer += delta;
   if (entity.flashTimer >= EMERGENCY.FLASH_INTERVAL) {
@@ -33,13 +35,13 @@ export function tickEmergency(entity, delta) {
   // ---- Driving logic ----
   switch (entity.behaviorState) {
     case 'driving':
-      return drivingTick(entity, delta);
+      return drivingTick(entity, delta, collisionData);
     case 'turning':
-      return turningTick(entity, delta);
+      return turningTick(entity, delta, collisionData);
     default:
       // Fallback — always drive
       entity.behaviorState = 'driving';
-      return drivingTick(entity, delta);
+      return drivingTick(entity, delta, collisionData);
   }
 }
 
@@ -49,7 +51,7 @@ export function tickEmergency(entity, delta) {
  * Driving: move forward at EMERGENCY.DRIVE_SPEED, follow route.
  * No traffic light checks — emergency vehicle has right-of-way.
  */
-function drivingTick(entity, delta) {
+function drivingTick(entity, delta, collisionData) {
   const { route, stateData } = entity;
   const targetSpeed = EMERGENCY.DRIVE_SPEED;
 
@@ -59,8 +61,18 @@ function drivingTick(entity, delta) {
   }
 
   // Move forward
-  entity.position[0] += -Math.sin(entity.heading) * entity.speed * delta;
-  entity.position[2] += -Math.cos(entity.heading) * entity.speed * delta;
+  const moveX = -Math.sin(entity.heading) * entity.speed * delta;
+  const moveZ = -Math.cos(entity.heading) * entity.speed * delta;
+  const nextX = entity.position[0] + moveX;
+  const nextZ = entity.position[2] + moveZ;
+
+  if (checkBuildingCollision(nextX, nextZ, 1.0, collisionData)) {
+    entity.speed = 0; // Stop
+    return entity;
+  }
+
+  entity.position[0] = nextX;
+  entity.position[2] = nextZ;
 
   // Boundary wrapping
   if (Math.abs(entity.position[0]) > BOUNDARY) {
@@ -112,7 +124,7 @@ function drivingTick(entity, delta) {
  * Turning: rotate heading toward target, then resume driving.
  * Emergency vehicle maintains higher speed through turns.
  */
-function turningTick(entity, delta) {
+function turningTick(entity, delta, collisionData) {
   const { stateData } = entity;
   const targetHeading = stateData.targetHeading;
 
@@ -134,8 +146,15 @@ function turningTick(entity, delta) {
   }
 
   // Keep moving through the turn
-  entity.position[0] += -Math.sin(entity.heading) * entity.speed * delta;
-  entity.position[2] += -Math.cos(entity.heading) * entity.speed * delta;
+  const moveX = -Math.sin(entity.heading) * entity.speed * delta;
+  const moveZ = -Math.cos(entity.heading) * entity.speed * delta;
+  const nextX = entity.position[0] + moveX;
+  const nextZ = entity.position[2] + moveZ;
+
+  if (!checkBuildingCollision(nextX, nextZ, 1.0, collisionData)) {
+    entity.position[0] = nextX;
+    entity.position[2] = nextZ;
+  }
 
   // Boundary wrapping
   if (Math.abs(entity.position[0]) > BOUNDARY) {

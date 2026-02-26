@@ -5,6 +5,7 @@
 
 import { PEDESTRIAN } from '../../constants/entities.js';
 import { GRID, WORLD_HALF } from '../../constants/world.js';
+import { checkBuildingCollision } from '../vehicle/collisions.js';
 
 const ROAD_WIDTH = GRID.ROAD_WIDTH;       // 14m
 const BOUNDARY = WORLD_HALF - 2;          // keep entities inside world
@@ -17,18 +18,19 @@ const MAX_WAIT_TIME = 30;                 // s — give up waiting after this
  * @param {object} entity       - pedestrian entity
  * @param {number} delta        - seconds since last frame
  * @param {object} trafficState - { getLightState(axis) } from traffic store
+ * @param {object} collisionData
  * @returns {object} mutated entity
  */
-export function tickPedestrian(entity, delta, trafficState) {
+export function tickPedestrian(entity, delta, trafficState, collisionData) {
   switch (entity.behaviorState) {
     case 'walking':
-      return walkingTick(entity, delta);
+      return walkingTick(entity, delta, collisionData);
     case 'waiting':
       return waitingTick(entity, delta, trafficState);
     case 'crossing':
-      return crossingTick(entity, delta);
+      return crossingTick(entity, delta, collisionData);
     case 'jaywalking':
-      return jaywalkingTick(entity, delta);
+      return jaywalkingTick(entity, delta, collisionData);
     default:
       return entity;
   }
@@ -41,22 +43,33 @@ export function tickPedestrian(entity, delta, trafficState) {
  * Reverse direction at world boundary.
  * Transition to waiting near intersections.
  */
-function walkingTick(entity, delta) {
+function walkingTick(entity, delta, collisionData) {
   const { stateData } = entity;
   const speed = PEDESTRIAN.WALK_SPEED;
   const dist = speed * delta;
 
+  let nextX = entity.position[0];
+  let nextZ = entity.position[2];
+
   // Move along the road axis
   if (stateData.roadAxis === 'ew') {
     // Walking east/west => move along X
-    entity.position[0] += stateData.direction * dist;
+    nextX += stateData.direction * dist;
     entity.heading = stateData.direction > 0 ? -Math.PI / 2 : Math.PI / 2;
   } else {
     // Walking north/south => move along Z
-    entity.position[2] += stateData.direction * dist;
+    nextZ += stateData.direction * dist;
     entity.heading = stateData.direction > 0 ? 0 : Math.PI;
   }
 
+  // Check building collision. If they hit a building, turn around immediately
+  if (checkBuildingCollision(nextX, nextZ, 0.4, collisionData)) {
+    stateData.direction *= -1;
+    return entity;
+  }
+
+  entity.position[0] = nextX;
+  entity.position[2] = nextZ;
   entity.speed = speed;
 
   // Boundary check — reverse direction at edges
@@ -148,24 +161,37 @@ function waitingTick(entity, delta, trafficState) {
  * Total distance = ROAD_WIDTH (14m).
  * Once done, transition to walking on the other sidewalk.
  */
-function crossingTick(entity, delta) {
+function crossingTick(entity, delta, collisionData) {
   const { stateData } = entity;
   const speed = PEDESTRIAN.CROSS_SPEED;
   const dist = speed * delta;
 
-  stateData.crossDistance += dist;
-  entity.speed = speed;
+  let nextX = entity.position[0];
+  let nextZ = entity.position[2];
 
   // Move perpendicular to road axis
   if (stateData.roadAxis === 'ew') {
     // On EW sidewalk => cross in Z direction (north/south)
-    entity.position[2] += stateData.crossDirection * dist;
+    nextZ += stateData.crossDirection * dist;
     entity.heading = stateData.crossDirection > 0 ? 0 : Math.PI;
   } else {
     // On NS sidewalk => cross in X direction (east/west)
-    entity.position[0] += stateData.crossDirection * dist;
+    nextX += stateData.crossDirection * dist;
     entity.heading = stateData.crossDirection > 0 ? -Math.PI / 2 : Math.PI / 2;
   }
+
+  // If hitting a building while crossing, abort crossing and return to walking
+  if (checkBuildingCollision(nextX, nextZ, 0.4, collisionData)) {
+    entity.behaviorState = 'walking';
+    entity.speed = PEDESTRIAN.WALK_SPEED;
+    stateData.crossDistance = 0;
+    return entity;
+  }
+
+  entity.position[0] = nextX;
+  entity.position[2] = nextZ;
+  stateData.crossDistance += dist;
+  entity.speed = speed;
 
   // Clamp to world bounds
   entity.position[0] = Math.max(-BOUNDARY, Math.min(BOUNDARY, entity.position[0]));
@@ -190,7 +216,7 @@ function crossingTick(entity, delta) {
  * Jaywalking: wait for timer to expire, then cross mid-block.
  * Similar to crossing but without waiting for traffic light.
  */
-function jaywalkingTick(entity, delta) {
+function jaywalkingTick(entity, delta, collisionData) {
   const { stateData } = entity;
 
   // Phase 1: countdown timer (walking along sidewalk)
@@ -201,13 +227,24 @@ function jaywalkingTick(entity, delta) {
     const dist = speed * delta;
     entity.speed = speed;
 
+    let nextX = entity.position[0];
+    let nextZ = entity.position[2];
+
     if (stateData.roadAxis === 'ew') {
-      entity.position[0] += stateData.direction * dist;
+      nextX += stateData.direction * dist;
       entity.heading = stateData.direction > 0 ? -Math.PI / 2 : Math.PI / 2;
     } else {
-      entity.position[2] += stateData.direction * dist;
+      nextZ += stateData.direction * dist;
       entity.heading = stateData.direction > 0 ? 0 : Math.PI;
     }
+
+    if (checkBuildingCollision(nextX, nextZ, 0.4, collisionData)) {
+      stateData.direction *= -1;
+      return entity;
+    }
+
+    entity.position[0] = nextX;
+    entity.position[2] = nextZ;
 
     // Boundary check
     if (entity.position[0] > BOUNDARY || entity.position[0] < -BOUNDARY) {
@@ -229,16 +266,29 @@ function jaywalkingTick(entity, delta) {
   // Phase 2: crossing (same as crossing state but no light check)
   const speed = PEDESTRIAN.CROSS_SPEED;
   const dist = speed * delta;
-  stateData.crossDistance += dist;
-  entity.speed = speed;
+
+  let nextX = entity.position[0];
+  let nextZ = entity.position[2];
 
   if (stateData.roadAxis === 'ew') {
-    entity.position[2] += stateData.crossDirection * dist;
+    nextZ += stateData.crossDirection * dist;
     entity.heading = stateData.crossDirection > 0 ? 0 : Math.PI;
   } else {
-    entity.position[0] += stateData.crossDirection * dist;
+    nextX += stateData.crossDirection * dist;
     entity.heading = stateData.crossDirection > 0 ? -Math.PI / 2 : Math.PI / 2;
   }
+
+  if (checkBuildingCollision(nextX, nextZ, 0.4, collisionData)) {
+    entity.behaviorState = 'walking';
+    entity.speed = PEDESTRIAN.WALK_SPEED;
+    stateData.crossDistance = 0;
+    return entity;
+  }
+
+  entity.position[0] = nextX;
+  entity.position[2] = nextZ;
+  stateData.crossDistance += dist;
+  entity.speed = speed;
 
   entity.position[0] = Math.max(-BOUNDARY, Math.min(BOUNDARY, entity.position[0]));
   entity.position[2] = Math.max(-BOUNDARY, Math.min(BOUNDARY, entity.position[2]));

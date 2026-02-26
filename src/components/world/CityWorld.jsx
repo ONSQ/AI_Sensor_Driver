@@ -26,6 +26,7 @@ import SensorManager from '../sensors/SensorManager.jsx';
 import Vehicle from '../vehicle/Vehicle.jsx';
 import useEntityStore from '../../stores/useEntityStore.js';
 import EntityRenderer from '../entities/EntityRenderer.jsx';
+import NPCTrafficController from '../ai/NPCTrafficController.jsx';
 
 export default function CityWorld({ seed = 12345, cameraMode = 'orbit' }) {
   const worldData = useMemo(() => generateWorld(seed), [seed]);
@@ -64,7 +65,7 @@ export default function CityWorld({ seed = 12345, cameraMode = 'orbit' }) {
 
     // Entity behavior tick (pedestrians, NPC vehicles, animals, etc.)
     const vPos = useVehicleStore.getState().position;
-    useEntityStore.getState().tick(delta, useTrafficStore.getState(), vPos);
+    useEntityStore.getState().tick(delta, useTrafficStore.getState(), vPos, collisionData);
 
     // Vehicle physics tick → collision resolution → scoring
     const vState = useVehicleStore.getState();
@@ -108,6 +109,9 @@ export default function CityWorld({ seed = 12345, cameraMode = 'orbit' }) {
           <ZoneProps props={block.props} />
         </group>
       ))}
+
+      {/* AI NPCs */}
+      <NPCTrafficController collisionData={collisionData} />
 
       {/* Traffic lights at interior intersections */}
       {worldData.trafficLights.map((light) => (

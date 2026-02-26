@@ -758,9 +758,10 @@ export function spawnEntities(seed, worldData) {
  * @param {number} delta          - seconds since last frame
  * @param {object} trafficState   - object with getLightState(axis) method
  * @param {number[]} playerPosition - player vehicle [x, y, z]
+ * @param {object} collisionData  - pre-processed world collision data
  * @returns {Array} updated entity array
  */
-export function tickEntities(entities, delta, trafficState, playerPosition) {
+export function tickEntities(entities, delta, trafficState, playerPosition, collisionData) {
   // Cap delta to avoid physics explosions on tab-switch
   const dt = Math.min(delta, 0.1);
 
@@ -769,17 +770,17 @@ export function tickEntities(entities, delta, trafficState, playerPosition) {
 
     switch (e.type) {
       case 'pedestrian':
-        entities[i] = tickPedestrian(e, dt, trafficState);
+        entities[i] = tickPedestrian(e, dt, trafficState, collisionData);
         break;
       case 'npcVehicle':
       case 'schoolbus':
-        entities[i] = tickNpcVehicle(e, dt, trafficState, playerPosition);
+        entities[i] = tickNpcVehicle(e, dt, trafficState, playerPosition, collisionData);
         break;
       case 'animal':
-        entities[i] = tickAnimal(e, dt);
+        entities[i] = tickAnimal(e, dt, collisionData);
         break;
       case 'emergency':
-        entities[i] = tickEmergency(e, dt);
+        entities[i] = tickEmergency(e, dt, collisionData);
         break;
       case 'ball':
         entities[i] = tickBall(e, dt, playerPosition);

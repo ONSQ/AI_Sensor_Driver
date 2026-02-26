@@ -5,6 +5,7 @@
 
 import { NPC_VEHICLE } from '../../constants/entities.js';
 import { GRID, WORLD_HALF } from '../../constants/world.js';
+import { checkBuildingCollision } from '../vehicle/collisions.js';
 
 const BOUNDARY = WORLD_HALF - 2;
 const WAYPOINT_REACH = 3;         // m — distance to consider waypoint reached
@@ -20,9 +21,10 @@ const ACCEL_RATE = 4.0;           // m/s^2 — acceleration from stop
  * @param {number} delta        - seconds since last frame
  * @param {object} trafficState - { getLightState(axis) }
  * @param {number[]} playerPosition - [x, y, z]
+ * @param {object} collisionData
  * @returns {object} mutated entity
  */
-export function tickNpcVehicle(entity, delta, trafficState, playerPosition) {
+export function tickNpcVehicle(entity, delta, trafficState, playerPosition, collisionData) {
   // Parked vehicles never move
   if (entity.subtype === 'parked' || entity.behaviorState === 'parked') {
     return entity;
@@ -30,13 +32,13 @@ export function tickNpcVehicle(entity, delta, trafficState, playerPosition) {
 
   switch (entity.behaviorState) {
     case 'driving':
-      return drivingTick(entity, delta, trafficState, playerPosition);
+      return drivingTick(entity, delta, trafficState, playerPosition, collisionData);
     case 'stopping':
       return stoppingTick(entity, delta, trafficState, playerPosition);
     case 'stopped':
       return stoppedTick(entity, delta, trafficState);
     case 'turning':
-      return turningTick(entity, delta);
+      return turningTick(entity, delta, collisionData);
     default:
       return entity;
   }
@@ -47,7 +49,7 @@ export function tickNpcVehicle(entity, delta, trafficState, playerPosition) {
 /**
  * Driving: move forward, follow route, check traffic lights.
  */
-function drivingTick(entity, delta, trafficState, playerPosition) {
+function drivingTick(entity, delta, trafficState, playerPosition, collisionData) {
   const { route, stateData } = entity;
 
   // Accelerate to target speed
@@ -62,8 +64,16 @@ function drivingTick(entity, delta, trafficState, playerPosition) {
   // Forward direction: -sin(heading) on X, -cos(heading) on Z
   const moveX = -Math.sin(entity.heading) * entity.speed * delta;
   const moveZ = -Math.cos(entity.heading) * entity.speed * delta;
-  entity.position[0] += moveX;
-  entity.position[2] += moveZ;
+  const nextX = entity.position[0] + moveX;
+  const nextZ = entity.position[2] + moveZ;
+
+  if (checkBuildingCollision(nextX, nextZ, 1.0, collisionData)) {
+    entity.speed = 0; // stop instead of crashing
+    return entity;
+  }
+
+  entity.position[0] = nextX;
+  entity.position[2] = nextZ;
 
   // Boundary wrapping — when out of bounds, wrap to opposite side without reversing heading
   if (Math.abs(entity.position[0]) > BOUNDARY) {
@@ -199,7 +209,7 @@ function stoppedTick(entity, delta, trafficState) {
 /**
  * Turning: smoothly rotate heading toward target, then resume driving.
  */
-function turningTick(entity, delta) {
+function turningTick(entity, delta, collisionData) {
   const { stateData } = entity;
   const targetHeading = stateData.targetHeading;
 
@@ -218,8 +228,15 @@ function turningTick(entity, delta) {
   }
 
   // Keep moving through the turn
-  entity.position[0] += -Math.sin(entity.heading) * entity.speed * delta;
-  entity.position[2] += -Math.cos(entity.heading) * entity.speed * delta;
+  const moveX = -Math.sin(entity.heading) * entity.speed * delta;
+  const moveZ = -Math.cos(entity.heading) * entity.speed * delta;
+  const nextX = entity.position[0] + moveX;
+  const nextZ = entity.position[2] + moveZ;
+
+  if (!checkBuildingCollision(nextX, nextZ, 1.0, collisionData)) {
+    entity.position[0] = nextX;
+    entity.position[2] = nextZ;
+  }
 
   // Boundary wrapping 
   if (Math.abs(entity.position[0]) > BOUNDARY) {

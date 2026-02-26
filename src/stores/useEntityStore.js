@@ -25,11 +25,12 @@ const useEntityStore = create((set, get) => ({
    * @param {number} delta — seconds since last frame
    * @param {object} trafficState — traffic store state (for light checks)
    * @param {number[]} playerPosition — vehicle [x, y, z]
+   * @param {object} collisionData - pre-processed world collision data
    */
-  tick: (delta, trafficState, playerPosition) => {
+  tick: (delta, trafficState, playerPosition, collisionData) => {
     const { entities } = get();
     if (entities.length === 0) return;
-    const updated = tickEntities(entities, delta, trafficState, playerPosition);
+    const updated = tickEntities(entities, delta, trafficState, playerPosition, collisionData);
     set({ entities: updated });
   },
 

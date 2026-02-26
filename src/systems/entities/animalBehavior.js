@@ -6,6 +6,7 @@
 
 import { ANIMAL } from '../../constants/entities.js';
 import { GRID, WORLD_HALF } from '../../constants/world.js';
+import { checkBuildingCollision } from '../vehicle/collisions.js';
 
 const BOUNDARY = WORLD_HALF - 2;
 const ROAD_WIDTH = GRID.ROAD_WIDTH; // 14m — dart distance
@@ -15,16 +16,17 @@ const ROAD_WIDTH = GRID.ROAD_WIDTH; // 14m — dart distance
  *
  * @param {object} entity - animal entity
  * @param {number} delta  - seconds since last frame
+ * @param {object} collisionData
  * @returns {object} mutated entity
  */
-export function tickAnimal(entity, delta) {
+export function tickAnimal(entity, delta, collisionData) {
   switch (entity.behaviorState) {
     case 'wandering':
-      return wanderingTick(entity, delta);
+      return wanderingTick(entity, delta, collisionData);
     case 'paused':
       return pausedTick(entity, delta);
     case 'darting':
-      return dartingTick(entity, delta);
+      return dartingTick(entity, delta, collisionData);
     default:
       return entity;
   }
@@ -36,7 +38,7 @@ export function tickAnimal(entity, delta) {
  * Wandering: move in stateData.direction at species speed.
  * Timer counts down. When expired, transition to paused.
  */
-function wanderingTick(entity, delta) {
+function wanderingTick(entity, delta, collisionData) {
   const { stateData } = entity;
   const speed = stateData.baseSpeed;
 
@@ -45,8 +47,18 @@ function wanderingTick(entity, delta) {
   const dx = Math.cos(dir) * speed * delta;
   const dz = Math.sin(dir) * speed * delta;
 
-  entity.position[0] += dx;
-  entity.position[2] += dz;
+  const nextX = entity.position[0] + dx;
+  const nextZ = entity.position[2] + dz;
+
+  // Building check — bounce off
+  if (checkBuildingCollision(nextX, nextZ, entity.boundingBoxRadius || 0.5, collisionData)) {
+    // Reverse direction completely if hitting a building
+    stateData.direction = stateData.direction + Math.PI;
+    return entity;
+  }
+
+  entity.position[0] = nextX;
+  entity.position[2] = nextZ;
   entity.heading = dir;
   entity.speed = speed;
 
@@ -110,7 +122,7 @@ function pausedTick(entity, delta) {
  * Darting: sprint perpendicular to nearest road across the road.
  * After crossing (distance > 14m), transition to paused.
  */
-function dartingTick(entity, delta) {
+function dartingTick(entity, delta, collisionData) {
   const { stateData } = entity;
   const speed = stateData.dartSpeed;
   const dir = stateData.direction;
@@ -119,8 +131,17 @@ function dartingTick(entity, delta) {
   const dz = Math.sin(dir) * speed * delta;
   const moveDist = speed * delta;
 
-  entity.position[0] += dx;
-  entity.position[2] += dz;
+  const nextX = entity.position[0] + dx;
+  const nextZ = entity.position[2] + dz;
+
+  // Stop darting immediately if hitting a building
+  if (checkBuildingCollision(nextX, nextZ, entity.boundingBoxRadius || 0.5, collisionData)) {
+    finishDart(entity);
+    return entity;
+  }
+
+  entity.position[0] = nextX;
+  entity.position[2] = nextZ;
   entity.heading = dir;
   entity.speed = speed;
 

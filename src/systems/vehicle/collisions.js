@@ -490,3 +490,36 @@ export function resolveCollisions(vehicleState, collisionData) {
     scoreDelta,
   };
 }
+
+/**
+ * Checks if a point (with a given radius) overlaps any building AABBs.
+ * Used by pedestrians and animals to bounce off buildings.
+ * @param {number} x
+ * @param {number} z
+ * @param {number} r - radius
+ * @param {object} collisionData
+ * @returns {boolean} true if it overlaps
+ */
+export function checkBuildingCollision(x, z, r, collisionData) {
+  if (!collisionData || !collisionData.byBlock) return false;
+
+  const blockKeys = getNearbyBlockKeys(x, z);
+  for (const key of blockKeys) {
+    const objs = collisionData.byBlock[key];
+    if (!objs) continue;
+
+    for (const obj of objs) {
+      if (obj.type === 'building') {
+        const expandedMinX = obj.minX - r;
+        const expandedMaxX = obj.maxX + r;
+        const expandedMinZ = obj.minZ - r;
+        const expandedMaxZ = obj.maxZ + r;
+
+        if (x > expandedMinX && x < expandedMaxX && z > expandedMinZ && z < expandedMaxZ) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
