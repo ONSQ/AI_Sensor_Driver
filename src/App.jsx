@@ -21,6 +21,7 @@ import useSensorStore from './stores/useSensorStore.js';
 import { CAMERA } from './constants/vehicle.js';
 import AIController from './components/ai/AIController.jsx';
 import GlassBoxUI from './components/glassbox/GlassBoxUI.jsx';
+import Minimap from './components/ui/Minimap.jsx';
 
 /**
  * OrbitControls that follows the vehicle position.
@@ -161,6 +162,9 @@ export default function App() {
 
       {/* Waypoint compass (first-person + third-person) */}
       <WaypointCompass visible={!isOrbit} />
+
+      {/* GPS Minimap Overlay (first-person + third-person) */}
+      {!isOrbit && <Minimap />}
 
       {/* Direction compass (always visible including orbital) */}
       <DirectionCompass visible={true} />

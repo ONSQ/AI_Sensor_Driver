@@ -3,6 +3,8 @@ import { useFrame } from '@react-three/fiber';
 import * as YUKA from 'yuka';
 import NPCManager from '../../ai/NPCManager.js';
 import NPCVehicle from '../../ai/NPCVehicle.js';
+import useTrafficStore from '../../stores/useTrafficStore.js';
+import { generateRandomLoop } from '../../ai/NPCRoutePlanner.js';
 
 export default function NPCTrafficController({ collisionData }) {
     const meshRef = useRef(null);
@@ -13,34 +15,29 @@ export default function NPCTrafficController({ collisionData }) {
 
         // Setup Yuka Vehicle
         const vehicle = new NPCVehicle(meshRef.current);
-        vehicle.position.set(0, 0.5, 30); // Start 30m away
+        vehicle.maxSpeed = 10;
 
-        // Create obstacles from collisionData buildings
-        const obstacles = [];
-        if (collisionData.byBlock) {
-            Object.values(collisionData.byBlock).flat().forEach((obj) => {
-                if (obj.type === 'building') {
-                    const cx = (obj.minX + obj.maxX) / 2;
-                    const cz = (obj.minZ + obj.maxZ) / 2;
-                    // Use the smaller dimension for conservative radius so we don't block roads
-                    const r = Math.min(obj.maxX - obj.minX, obj.maxZ - obj.minZ) * 0.7;
-                    const obstacle = new YUKA.GameEntity();
-                    obstacle.position.set(cx, 0, cz);
-                    obstacle.boundingRadius = r;
-                    obstacles.push(obstacle);
-                }
-            });
+        // Obstacle avoidance removed because it forces perfectly-aligned NPCs off the road and into buildings.
+        // NPCs will now strictly follow their generated routes to avoid collisions.
+
+        // Add Path Following Behavior
+        const path = generateRandomLoop();
+
+        // Start position at the beginning of the path
+        vehicle.position.copy(path.current());
+        if (path._waypoints.length > 1) {
+            vehicle.lookAt(path._waypoints[1]);
         }
 
-        // Add Obstacle Avoidance Behavior
-        const obstacleBehavior = new YUKA.ObstacleAvoidanceBehavior(obstacles);
-        obstacleBehavior.weight = 3.0; // High priority
-        vehicle.steering.add(obstacleBehavior);
+        const onPathBehavior = new YUKA.OnPathBehavior(path, 0.5, 0.1);
+        onPathBehavior.weight = 1.0;
+        vehicle.steering.add(onPathBehavior);
 
-        // Add Wander Behavior
-        const wanderBehavior = new YUKA.WanderBehavior(5, 5, 2);
-        wanderBehavior.weight = 1.0;
-        vehicle.steering.add(wanderBehavior);
+        const followPathBehavior = new YUKA.FollowPathBehavior(path, 2.0);
+        followPathBehavior.weight = 1.0;
+        vehicle.steering.add(followPathBehavior);
+
+        vehicle.targetPath = path;
 
         NPCManager.add(vehicle);
         vehicleRef.current = vehicle;
@@ -51,9 +48,41 @@ export default function NPCTrafficController({ collisionData }) {
     }, [collisionData]);
 
     useFrame(() => {
-        NPCManager.update();
-        if (vehicleRef.current) {
-            vehicleRef.current.update();
+        try {
+            NPCManager.update();
+            if (vehicleRef.current) {
+                const vehicle = vehicleRef.current;
+                const path = vehicle.targetPath;
+
+                if (path) {
+                    // Check traffic lights before intersection
+                    const nextWaypoint = path.current();
+                    const dist = vehicle.position.distanceTo(nextWaypoint);
+
+                    let shouldStop = false;
+
+                    if (dist < 15) {
+                        const heading = vehicle.velocity.clone().normalize();
+                        const isEW = Math.abs(heading.x) > Math.abs(heading.z);
+                        const axis = isEW ? 'ew' : 'ns';
+
+                        const trafficStore = useTrafficStore.getState();
+                        if (trafficStore.isRed(axis)) {
+                            shouldStop = true;
+                        }
+                    }
+
+                    if (shouldStop) {
+                        vehicle.maxSpeed = Math.max(0, vehicle.maxSpeed - 0.5);
+                    } else {
+                        vehicle.maxSpeed = Math.min(10, vehicle.maxSpeed + 0.2);
+                    }
+                }
+
+                vehicle.update();
+            }
+        } catch (error) {
+            console.error("Error in NPCTrafficController useFrame:", error);
         }
     });
 

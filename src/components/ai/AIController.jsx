@@ -66,11 +66,13 @@ export default function AIController({ enabled = true }) {
                     let targetDz = dz;
 
                     if (isHeadingX) {
-                        if (Math.abs(dx) > 10) {
+                        // Wait until the vehicle is well inside the intersection (4m from center) before unlocking the Z axis to turn.
+                        // The intersection is 14m wide (7m half-width).
+                        if (Math.abs(dx) > 4) {
                             targetDz = 0; // Lock Z to current lane, drive straight along X
                         }
                     } else {
-                        if (Math.abs(dz) > 10) {
+                        if (Math.abs(dz) > 4) {
                             targetDx = 0; // Lock X to current lane, drive straight along Z
                         }
                     }

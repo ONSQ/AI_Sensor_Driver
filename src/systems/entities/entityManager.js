@@ -91,20 +91,10 @@ function buildGridRoute(rng, start, targetSchools = false) {
     });
   }
 
+  // 1. Generate the sequence of intersections
+  const intSequence = [current];
+
   for (let step = 0; step < numSteps; step++) {
-    // Determine lane offset based on incoming direction
-    let offsetX = 0;
-    let offsetZ = 0;
-    if (prev) {
-      if (current.row > prev.row) offsetX = -NPC_VEHICLE.LANE_OFFSET; // South => -X offset
-      else if (current.row < prev.row) offsetX = NPC_VEHICLE.LANE_OFFSET; // North => +X offset
-      else if (current.col > prev.col) offsetZ = NPC_VEHICLE.LANE_OFFSET; // East => +Z offset
-      else if (current.col < prev.col) offsetZ = -NPC_VEHICLE.LANE_OFFSET; // West => -Z offset
-    }
-
-    // Push the lane-offset intersection center
-    route.push([current.pos[0] + offsetX, current.pos[1] + offsetZ]);
-
     const neighbors = [];
     if (current.row > 0) neighbors.push(ints.find(i => i.row === current.row - 1 && i.col === current.col));
     if (current.row < 4) neighbors.push(ints.find(i => i.row === current.row + 1 && i.col === current.col));
@@ -123,14 +113,48 @@ function buildGridRoute(rng, start, targetSchools = false) {
         const distB = Math.min(...targetInts.map(ti => Math.abs(ti.row - b.row) + Math.abs(ti.col - b.col)));
         return distA - distB;
       });
-      // 80% chance to pick best path toward school
       if (randBool(rng, 0.8)) {
         current = validNeighbors[0];
+        intSequence.push(current);
         continue;
       }
     }
 
     current = randPick(rng, validNeighbors);
+    intSequence.push(current);
+  }
+
+  // 2. Convert intersections to lane-aligned waypoints
+  for (let i = 0; i < intSequence.length; i++) {
+    const currInt = intSequence[i];
+    const prevInt = i > 0 ? intSequence[i - 1] : null;
+    const nextInt = i < intSequence.length - 1 ? intSequence[i + 1] : null;
+
+    let offsetX_in = 0, offsetZ_in = 0;
+    if (prevInt) {
+      if (currInt.row > prevInt.row) offsetX_in = -NPC_VEHICLE.LANE_OFFSET; // South
+      else if (currInt.row < prevInt.row) offsetX_in = NPC_VEHICLE.LANE_OFFSET; // North
+      else if (currInt.col > prevInt.col) offsetZ_in = NPC_VEHICLE.LANE_OFFSET; // East
+      else if (currInt.col < prevInt.col) offsetZ_in = -NPC_VEHICLE.LANE_OFFSET; // West
+    }
+
+    let offsetX_out = 0, offsetZ_out = 0;
+    if (nextInt) {
+      if (nextInt.row > currInt.row) offsetX_out = -NPC_VEHICLE.LANE_OFFSET; // South
+      else if (nextInt.row < currInt.row) offsetX_out = NPC_VEHICLE.LANE_OFFSET; // North
+      else if (nextInt.col > currInt.col) offsetZ_out = NPC_VEHICLE.LANE_OFFSET; // East
+      else if (nextInt.col < currInt.col) offsetZ_out = -NPC_VEHICLE.LANE_OFFSET; // West
+    }
+
+    // Entering the intersection
+    if (prevInt) {
+      route.push([currInt.pos[0] + offsetX_in, currInt.pos[1] + offsetZ_in]);
+    }
+
+    // Leaving the intersection (creates a 90-degree corner point)
+    if (nextInt && (offsetX_in !== offsetX_out || offsetZ_in !== offsetZ_out)) {
+      route.push([currInt.pos[0] + offsetX_out, currInt.pos[1] + offsetZ_out]);
+    }
   }
 
   return route;

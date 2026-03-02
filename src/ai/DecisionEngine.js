@@ -59,20 +59,7 @@ export class DecisionEngine {
                     score -= 30;
                 }
 
-                // Obstacle avoidance override: If path is blocked, heavily favor turning AWAY from the obstacle
-                // (In a real system, LiDAR would give a left/right clearance heuristic. Here we just try to swerve
-                // in the opposite direction of the waypoint if we are blocked, or strongly favor any turn over straight).
-                if (!state.pathClear && state.speed > 5) {
-                    if (state.targetDirection === action.id) {
-                        // Even if it's the target direction, turning might be better than hitting it straight on
-                        score += 30;
-                    } else if (state.targetDirection === 'STRAIGHT') {
-                        // If waypoint is straight ahead but blocked, pick a direction to swerve
-                        // Default to right for standard right-hand traffic rules where possible
-                        if (action.id === 'RIGHT') score += 50;
-                        if (action.id === 'LEFT') score += 40;
-                    }
-                }
+                // Do not swerve blindly if blocked. Priority is to brake.
             }
 
             return { action: action.id, score, label: action.label };
