@@ -27,6 +27,7 @@ import Vehicle from '../vehicle/Vehicle.jsx';
 import useEntityStore from '../../stores/useEntityStore.js';
 import EntityRenderer from '../entities/EntityRenderer.jsx';
 import NPCTrafficController from '../ai/NPCTrafficController.jsx';
+import WaypointDesigner from './WaypointDesigner.jsx';
 
 export default function CityWorld({ seed = 12345, cameraMode = 'orbit' }) {
   const worldData = useMemo(() => generateWorld(seed), [seed]);
@@ -154,6 +155,9 @@ export default function CityWorld({ seed = 12345, cameraMode = 'orbit' }) {
           index={i}
         />
       ))}
+
+      {/* Custom Waypoint Designer (only visible in designer mode) */}
+      <WaypointDesigner />
 
       {/* Animated entities (pedestrians, NPC vehicles, animals, etc.) */}
       <EntityRenderer />

@@ -67,7 +67,9 @@ export default function Minimap() {
                                     y={(cz - GRID.BLOCK_SIZE / 2) * ZOOM_LEVEL}
                                     width={GRID.BLOCK_SIZE * ZOOM_LEVEL}
                                     height={GRID.BLOCK_SIZE * ZOOM_LEVEL}
-                                    fill="#dee2e6"
+                                    fill="#adb5bd"
+                                    stroke="#868e96"
+                                    strokeWidth="1.5"
                                     rx="4"
                                 />
                             )
@@ -106,12 +108,12 @@ export default function Minimap() {
                 </g>
 
                 {/* Stationary Vehicle Chevron (Always in center) */}
-                <g transform={`translate(${MINIMAP_SIZE / 2}, ${MINIMAP_SIZE / 2}) rotate(${heading * (180 / Math.PI) + 180})`}>
-                    {/* View Cone */}
+                <g transform={`translate(${MINIMAP_SIZE / 2}, ${MINIMAP_SIZE / 2}) rotate(${-heading * (180 / Math.PI)})`}>
+                    {/* View Cone (Points UP to -Y) */}
                     <path d="M-20 -40 L0 5 L20 -40 Z" fill="url(#coneGradient)" opacity="0.4" />
 
-                    {/* Navigation Chevron */}
-                    <path d="M-8 -10 L0 12 L8 -10 L0 -5 Z" fill="#4285F4" stroke="#fff" strokeWidth="1.5" />
+                    {/* Navigation Chevron (Points UP to -Y) */}
+                    <path d="M-8 10 L0 -12 L8 10 L0 5 Z" fill="#4285F4" stroke="#fff" strokeWidth="1.5" />
 
                     <defs>
                         <linearGradient id="coneGradient" x1="0%" y1="100%" x2="0%" y2="0%">

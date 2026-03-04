@@ -21,22 +21,37 @@ export class SafetyBehaviorTree {
       });
     }
 
+    // Rule 1.5: ML Model Threat Classification
+    if (perception && worldState.distanceToObstacle < 15) {
+      if (perception.classification === 'Pedestrian' && perception.confidence > 0.7) {
+        overrides.push({
+          action: 'EMERGENCY_BRAKE',
+          reason: `ML Classification: Pedestrian Yield (${Math.round(perception.confidence * 100)}%)`,
+          priority: 1
+        });
+      }
+    }
+
     // Rule 2: Red Light
     if (worldState.approachingRedLight && worldState.distanceToIntersection < 10) {
-      overrides.push({
-        action: 'STOP',
-        reason: 'Red traffic light ahead',
-        priority: 2
-      });
+      if (!worldState.inIntersection) {
+        overrides.push({
+          action: 'STOP',
+          reason: 'Red traffic light ahead',
+          priority: 2
+        });
+      }
     }
 
     // Rule 2.5: Stop Sign Yield
     if (worldState.approachingStopSign && worldState.distanceToIntersection < 10) {
-      overrides.push({
-        action: 'STOP',
-        reason: 'Yielding at Stop Sign',
-        priority: 2
-      });
+      if (!worldState.inIntersection) {
+        overrides.push({
+          action: 'STOP',
+          reason: 'Yielding at Stop Sign',
+          priority: 2
+        });
+      }
     }
 
     // Rule 3: Pedestrian Crossing

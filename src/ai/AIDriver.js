@@ -32,7 +32,7 @@ export class AIDriver {
         if (!this.isInitialized) return null;
 
         // 1. Perception
-        const perceptionResult = await this.perception.evaluate(sensors, activeSensors);
+        const perceptionResult = await this.perception.evaluate(sensors, activeSensors, worldState);
 
         // 2. Safety Override 
         const safetyOverride = this.safety.evaluate(worldState, perceptionResult);

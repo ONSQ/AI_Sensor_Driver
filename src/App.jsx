@@ -22,6 +22,7 @@ import { CAMERA } from './constants/vehicle.js';
 import AIController from './components/ai/AIController.jsx';
 import GlassBoxUI from './components/glassbox/GlassBoxUI.jsx';
 import Minimap from './components/ui/Minimap.jsx';
+import WaypointToolbar from './components/ui/WaypointToolbar.jsx';
 
 /**
  * OrbitControls that follows the vehicle position.
@@ -159,6 +160,9 @@ export default function App() {
 
       {/* Cockpit HUD (first-person + third-person) */}
       <CockpitHUD visible={!isOrbit} />
+
+      {/* Waypoint Designer Toolbar overlay */}
+      <WaypointToolbar />
 
       {/* Waypoint compass (first-person + third-person) */}
       <WaypointCompass visible={!isOrbit} />

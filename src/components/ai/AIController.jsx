@@ -45,10 +45,10 @@ export default function AIController({ enabled = true }) {
 
             let targetDirection = 'STRAIGHT';
             let alignedWithWaypoint = true;
+            const [vx, , vz] = vehicle.position;
 
             if (game.waypoints.length > 0 && game.currentWaypointIndex < game.waypoints.length) {
                 const wp = game.waypoints[game.currentWaypointIndex];
-                const [vx, , vz] = vehicle.position;
                 const [wx, , wz] = wp.position;
 
                 const dx = wx - vx;
@@ -107,33 +107,39 @@ export default function AIController({ enabled = true }) {
                 }
             }
 
-            // --- Lane Centering Override ---
-            // If we are heading roughly along an axis (not in the middle of a sharp turn), ensure we stay in the center of the right lane
-            const isHeadingX = Math.abs(Math.sin(vehicle.heading)) > 0.9;
-            const isHeadingZ = Math.abs(Math.cos(vehicle.heading)) > 0.9;
-            const laneOffset = 1.5; // Centers of lanes are offset 1.5m from road center
+            // --- Intersection & Strict Lane Centering ---
+            const roadWidthHalf = 7;
+            const gridStride = 54;
+            const col = Math.round((vx + 115 - roadWidthHalf) / gridStride);
+            const row = Math.round((vz + 115 - roadWidthHalf) / gridStride);
+            const intersectionCenterX = -115 + roadWidthHalf + col * gridStride;
+            const intersectionCenterZ = -115 + roadWidthHalf + row * gridStride;
 
-            // Only apply lane centering if we are actually generally aligned with a road axis
-            if (isHeadingX) {
-                // Moving East/West: Keep Z near 1.5 (Eastbound) or -1.5 (Westbound)
-                const targetZ = Math.cos(vehicle.heading) < 0 ? laneOffset : -laneOffset;
-                const errorZ = vehicle.position[2] - targetZ;
+            const distFromCenterX = Math.abs(vx - intersectionCenterX);
+            const distFromCenterZ = Math.abs(vz - intersectionCenterZ);
 
-                // If we drift too far from the center of the lane, gently steer back
-                if (errorZ > 0.5) {
-                    targetDirection = 'RIGHT';
-                } else if (errorZ < -0.5) {
-                    targetDirection = 'LEFT';
-                }
-            } else if (isHeadingZ) {
-                // Moving North/South: Keep X near 1.5 (Southbound) or -1.5 (Northbound)
-                const targetX = Math.sin(vehicle.heading) < 0 ? laneOffset : -laneOffset;
-                const errorX = vehicle.position[0] - targetX;
+            // We are inside an intersection if within the 14x14m square
+            const inIntersection = distFromCenterX < roadWidthHalf && distFromCenterZ < roadWidthHalf;
 
-                if (errorX > 0.5) {
-                    targetDirection = 'LEFT';
-                } else if (errorX < -0.5) {
-                    targetDirection = 'RIGHT';
+            // Strict Lane Keeping to prevent driving into buildings (only active when not turning wildly in an intersection)
+            if (!inIntersection) {
+                const laneOffset = 1.5;
+                if (distFromCenterZ < roadWidthHalf) {
+                    // On East-West Road
+                    const isEastBound = Math.sin(vehicle.heading) < 0;
+                    const targetZ = intersectionCenterZ + (isEastBound ? laneOffset : -laneOffset);
+                    const errorZ = vz - targetZ;
+
+                    if (errorZ > 0.8) targetDirection = isEastBound ? 'LEFT' : 'RIGHT';
+                    if (errorZ < -0.8) targetDirection = isEastBound ? 'RIGHT' : 'LEFT';
+                } else if (distFromCenterX < roadWidthHalf) {
+                    // On North-South Road
+                    const isSouthBound = Math.cos(vehicle.heading) < 0;
+                    const targetX = intersectionCenterX + (isSouthBound ? -laneOffset : laneOffset);
+                    const errorX = vx - targetX;
+
+                    if (errorX > 0.8) targetDirection = isSouthBound ? 'RIGHT' : 'LEFT';
+                    if (errorX < -0.8) targetDirection = isSouthBound ? 'LEFT' : 'RIGHT';
                 }
             }
 
@@ -141,8 +147,6 @@ export default function AIController({ enabled = true }) {
             let distanceToObstacle = 100; // Infinity/Clear
             let pathClear = true;
 
-            const vx = vehicle.position[0];
-            const vz = vehicle.position[2];
             const cosH = Math.cos(vehicle.heading);
             const sinH = Math.sin(vehicle.heading);
 
@@ -159,9 +163,9 @@ export default function AIController({ enabled = true }) {
                     const localX = relX * cosH - relZ * sinH;
                     const localZ = -relX * sinH - relZ * cosH;
 
-                    // Is the point in front of us and within our lane?
-                    // Vehicle is 1.8m wide. Check within a slightly wider 2.2m berth (1.1m half-width)
-                    if (localZ > 2.5 && Math.abs(localX) < 1.1) {
+                    // Is the point in front of us and within our lane or immediate boundary?
+                    // Vehicle is 1.8m wide. Check within a slightly wider 3.0m berth (1.5m half-width)
+                    if (localZ > 1.5 && Math.abs(localX) < 1.5) {
                         const dist = Math.sqrt(localX * localX + localZ * localZ);
                         if (dist < distanceToObstacle) {
                             distanceToObstacle = dist;
@@ -197,8 +201,10 @@ export default function AIController({ enabled = true }) {
                             distanceToIntersection = det.distance;
                         }
                     } else if (det.label === 'PERSON' && det.confidence > 0.5) {
-                        // For this basic simulation, any person centered in the camera is considered a crossing threat
-                        if (det.distance < 30) {
+                        // Only consider pedestrians a threat if they are relatively centered in the camera (in the road)
+                        // det.x is viewport x, where 0.5 is center. Check a band between 0.35 and 0.65.
+                        const centerX = det.x + (det.w || 0) / 2;
+                        if (det.distance < 30 && centerX > 0.35 && centerX < 0.65) {
                             pedestrianInCrosswalk = true;
                         }
                     }
@@ -229,9 +235,8 @@ export default function AIController({ enabled = true }) {
                     // Typical human thermal signature is ~36C. If a blob is hot and roughly human sized, 
                     // or explicitly typed as pedestrian, consider it a crosswalk threat.
                     if (blob.type === 'pedestrian' || (blob.temp >= 34 && blob.temp <= 38 && blob.boundsH < 3)) {
-                        // Calculate Manhattan-ish distance from relative coordinates
-                        const relDist = Math.abs(blob.relX) + Math.abs(blob.relZ);
-                        if (relDist < 25 && blob.relZ > 0) {
+                        // Check if they are physically narrow to the car's driving path (within 2.5m center-line offset)
+                        if (Math.abs(blob.relX) < 2.5 && blob.relZ > 0 && blob.relZ < 25) {
                             pedestrianInCrosswalk = true;
                         }
                     }
@@ -266,6 +271,7 @@ export default function AIController({ enabled = true }) {
                 distanceToIntersection,
                 pedestrianInCrosswalk,
                 emergencySirenHeard,
+                inIntersection,
             };
 
             // 1. Tick the AI Engine
