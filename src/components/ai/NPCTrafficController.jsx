@@ -29,11 +29,13 @@ export default function NPCTrafficController({ collisionData }) {
             vehicle.lookAt(path._waypoints[1]);
         }
 
+        // Reduce radius and prediction time so they don't swing wide
         const onPathBehavior = new YUKA.OnPathBehavior(path, 0.5, 0.1);
         onPathBehavior.weight = 1.0;
         vehicle.steering.add(onPathBehavior);
 
-        const followPathBehavior = new YUKA.FollowPathBehavior(path, 2.0);
+        // Force them to practically touch the waypoint before turning, preventing diagonal grass-cutting
+        const followPathBehavior = new YUKA.FollowPathBehavior(path, 1.0);
         followPathBehavior.weight = 1.0;
         vehicle.steering.add(followPathBehavior);
 

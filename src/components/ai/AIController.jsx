@@ -45,6 +45,8 @@ export default function AIController({ enabled = true }) {
 
             let targetDirection = 'STRAIGHT';
             let alignedWithWaypoint = true;
+            let headingErrorNormalized = 0.0;
+            let crossTrackErrorRaw = 0.0;
             const [vx, , vz] = vehicle.position;
 
             if (game.waypoints.length > 0 && game.currentWaypointIndex < game.waypoints.length) {
@@ -87,7 +89,6 @@ export default function AIController({ enabled = true }) {
                         const ndx = targetDx / distToTarget;
                         const ndz = targetDz / distToTarget;
 
-                        // Cross product Y component = fwdZ * ndx - fwdX * ndz
                         const crossY = fwdZ * ndx - fwdX * ndz;
                         // Dot product = cos of angle
                         const dot = fwdX * ndx + fwdZ * ndz;
@@ -95,6 +96,9 @@ export default function AIController({ enabled = true }) {
                         // Math.atan2(y, x) -> atan2(cross, dot) gives -PI to PI
                         const relativeAngle = Math.atan2(crossY, dot);
                         const angleDeg = relativeAngle * (180 / Math.PI);
+
+                        // Extract normalized heading error (-1.0 to 1.0)
+                        headingErrorNormalized = relativeAngle / Math.PI;
 
                         if (angleDeg > 10) {
                             targetDirection = 'LEFT';
@@ -129,6 +133,7 @@ export default function AIController({ enabled = true }) {
                     const isEastBound = Math.sin(vehicle.heading) < 0;
                     const targetZ = intersectionCenterZ + (isEastBound ? laneOffset : -laneOffset);
                     const errorZ = vz - targetZ;
+                    crossTrackErrorRaw = errorZ;
 
                     if (errorZ > 0.8) targetDirection = isEastBound ? 'LEFT' : 'RIGHT';
                     if (errorZ < -0.8) targetDirection = isEastBound ? 'RIGHT' : 'LEFT';
@@ -137,6 +142,7 @@ export default function AIController({ enabled = true }) {
                     const isSouthBound = Math.cos(vehicle.heading) < 0;
                     const targetX = intersectionCenterX + (isSouthBound ? -laneOffset : laneOffset);
                     const errorX = vx - targetX;
+                    crossTrackErrorRaw = errorX;
 
                     if (errorX > 0.8) targetDirection = isSouthBound ? 'RIGHT' : 'LEFT';
                     if (errorX < -0.8) targetDirection = isSouthBound ? 'LEFT' : 'RIGHT';
@@ -146,6 +152,10 @@ export default function AIController({ enabled = true }) {
             // --- Sensor Fusion: Obstacle Detection ---
             let distanceToObstacle = 100; // Infinity/Clear
             let pathClear = true;
+
+            // For the DQN, collect 5 distinct rays of depth
+            const lidarRays = [1.0, 1.0, 1.0, 1.0, 1.0]; // Far Left, Left, Center, Right, Far Right. 1.0 = Max distance
+            const RAY_MAX_DIST = 20.0;
 
             const cosH = Math.cos(vehicle.heading);
             const sinH = Math.sin(vehicle.heading);
@@ -170,6 +180,16 @@ export default function AIController({ enabled = true }) {
                         if (dist < distanceToObstacle) {
                             distanceToObstacle = dist;
                         }
+                    }
+
+                    // Bin the points for the DQN Neural Network
+                    if (localZ > 0 && localZ < RAY_MAX_DIST) {
+                        const distNormalized = Math.min(1.0, localZ / RAY_MAX_DIST);
+                        if (localX < -3.0 && localX > -6.0) lidarRays[0] = Math.min(lidarRays[0], distNormalized); // Far Left
+                        else if (localX < -1.0 && localX >= -3.0) lidarRays[1] = Math.min(lidarRays[1], distNormalized); // Left
+                        else if (Math.abs(localX) <= 1.0) lidarRays[2] = Math.min(lidarRays[2], distNormalized); // Center
+                        else if (localX > 1.0 && localX <= 3.0) lidarRays[3] = Math.min(lidarRays[3], distNormalized); // Right
+                        else if (localX > 3.0 && localX < 6.0) lidarRays[4] = Math.min(lidarRays[4], distNormalized); // Far Right
                     }
                 }
             }
@@ -274,8 +294,17 @@ export default function AIController({ enabled = true }) {
                 inIntersection,
             };
 
+            // Package normalized inputs for Neural Network execution
+            const dqnState = {
+                normalizedSpeed: Math.min(1.0, Math.max(0.0, vehicle.speed / zoneSpeedLimitMps)),
+                crossTrackError: Math.min(1.0, Math.max(-1.0, crossTrackErrorRaw / 3.0)), // normalize to roughly -1 to 1 based on lane width
+                headingError: headingErrorNormalized,
+                inIntersection: inIntersection ? 1.0 : 0.0,
+                lidarRays: lidarRays
+            };
+
             // 1. Tick the AI Engine
-            const result = await driverRef.current.tick(rawSensors, activeSensors, worldState);
+            const result = await driverRef.current.tick(rawSensors, activeSensors, worldState, dqnState);
             if (result) {
                 // 2. Publish results to the Glass Box UI
                 useAIStore.getState().updateGlassboxData(result);

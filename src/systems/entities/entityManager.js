@@ -68,10 +68,37 @@ function allIntersections() {
  * @param {boolean} targetSchools
  * @returns {number[][]}
  */
-function buildGridRoute(rng, start, targetSchools = false) {
+function buildGridRoute(rng, start, targetSchools = false, initialHeading = null) {
   const ints = allIntersections();
-  const startPos = nearestIntersection(start[0], start[2]);
-  let current = ints.find(i => i.pos[0] === startPos[0] && i.pos[1] === startPos[1]) || ints[0];
+  let current = null;
+
+  // Find the closest intersection that is strictly IN FRONT of the vehicle
+  if (initialHeading !== null) {
+    const fwdX = -Math.sin(initialHeading);
+    const fwdZ = -Math.cos(initialHeading);
+    let bestDist = Infinity;
+
+    for (const int of ints) {
+      const dx = int.pos[0] - start[0];
+      const dz = int.pos[1] - start[1];
+      const distSq = dx * dx + dz * dz;
+
+      // Dot product > 0 means the intersection is in front of the vehicle
+      if (dx * fwdX + dz * fwdZ > 0) {
+        if (distSq < bestDist) {
+          bestDist = distSq;
+          current = int;
+        }
+      }
+    }
+  }
+
+  // Fallback to nearest geometric intersection if the directional check fails
+  // (or if no heading is provided, e.g., for the emergency vehicle spawning exactly on an intersection)
+  if (!current) {
+    const startPos = nearestIntersection(start[0], start[1]);
+    current = ints.find(i => i.pos[0] === startPos[0] && i.pos[1] === startPos[1]) || ints[0];
+  }
 
   const route = [];
   let prev = null;
@@ -380,7 +407,7 @@ function spawnMovingVehicles(rng, segments) {
     if (tooCloseToPlayer(x, z)) continue;
 
     const startXZ = [x, z];
-    const route = buildGridRoute(rng, startXZ);
+    const route = buildGridRoute(rng, startXZ, false, heading);
 
     entities.push({
       id: uid('npc'),
@@ -444,7 +471,7 @@ function spawnSchoolBuses(rng, segments) {
     if (tooCloseToPlayer(x, z)) continue;
 
     const startXZ = [x, z];
-    const route = buildGridRoute(rng, startXZ, true);
+    const route = buildGridRoute(rng, startXZ, true, heading);
 
     entities.push({
       id: uid('bus'),

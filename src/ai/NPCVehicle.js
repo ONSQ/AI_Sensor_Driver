@@ -10,8 +10,8 @@ export default class NPCVehicle extends YUKA.Vehicle {
         // Default vehicle parameters
         this.maxSpeed = 15; // m/s
         this.mass = 1200; // kg
-        this.maxForce = 20000; // N - Increased significantly so a 1200kg mass can corner without drifting
-        this.maxTurnRate = Math.PI; // High turn rate to cleanly navigate strict 90-degree intersection paths
+        this.maxForce = 100000; // N - Massively increased so it does not understeer at intersections
+        this.maxTurnRate = Math.PI * 4; // Extremely high turn rate to cleanly snap 90-degree turns on the grid
         this.boundingRadius = 2.5;
 
         // Align the vehicle with its velocity vector
