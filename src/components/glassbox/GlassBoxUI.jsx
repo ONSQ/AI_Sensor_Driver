@@ -3,6 +3,9 @@ import NarrationLog from './NarrationLog.jsx';
 import ConfidenceMeters from './ConfidenceMeters.jsx';
 import DecisionTree from './DecisionTree.jsx';
 import SimulationControls from './SimulationControls.jsx';
+import QValuePanel from './QValuePanel.jsx';
+import StateFeaturesPanel from './StateFeaturesPanel.jsx';
+import TrainingHistoryPanel from './TrainingHistoryPanel.jsx';
 
 export default function GlassBoxUI({ visible }) {
     const glassboxData = useAIStore((s) => s.glassboxData);
@@ -38,7 +41,10 @@ export default function GlassBoxUI({ visible }) {
                 <>
                     <SimulationControls />
                     <DecisionTree data={glassboxData} />
+                    <QValuePanel data={glassboxData} />
                     <ConfidenceMeters data={glassboxData} />
+                    <StateFeaturesPanel data={glassboxData} />
+                    <TrainingHistoryPanel />
                     <NarrationLog />
                 </>
             )}

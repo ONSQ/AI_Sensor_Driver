@@ -54,8 +54,10 @@ export class SafetyBehaviorTree {
       }
     }
 
-    // Rule 3: Pedestrian Crossing
-    if (worldState.pedestrianInCrosswalk) {
+    // Rule 3: Pedestrian directly in ego path
+    // Only trigger a hard stop if a pedestrian is actually in the lane/path ahead,
+    // not just anywhere in a nearby crosswalk.
+    if (worldState.pedestrianInMyPath) {
       overrides.push({
         action: 'STOP',
         reason: 'Pedestrian yielding',

@@ -9,6 +9,7 @@ import { SPEED_LIMITS } from '../../constants/traffic.js';
 export default function AIController({ enabled = true }) {
     const driverRef = useRef(null);
     const stopSignTracker = useRef({ isStopped: false, timeStopped: 0 });
+    const overtakeState = useRef({ inOvertake: false, side: null });
 
     useEffect(() => {
         if (!enabled) return;
@@ -178,10 +179,44 @@ export default function AIController({ enabled = true }) {
                 pathClear = false;
             }
 
+            // --- Simple overtake state machine ---
+            // Prevent left-right weaving by committing to a chosen side
+            // while passing around a blocking obstacle.
+            const ot = overtakeState.current;
+            if (inIntersection) {
+                // Never maintain an overtake state inside intersections.
+                ot.inOvertake = false;
+                ot.side = null;
+            } else {
+                if (!ot.inOvertake) {
+                    // Start an overtake when the path ahead is blocked at short range.
+                    if (!pathClear && distanceToObstacle < 18) {
+                        let chosenSide = null;
+                        if (targetDirection === 'LEFT' || targetDirection === 'RIGHT') {
+                            chosenSide = targetDirection;
+                        } else {
+                            // Default to passing on the left if no clear hint.
+                            chosenSide = 'LEFT';
+                        }
+                        ot.inOvertake = true;
+                        ot.side = chosenSide;
+                    }
+                } else {
+                    // End overtake once the obstacle is well behind / path clear again.
+                    if (pathClear && distanceToObstacle > 25) {
+                        ot.inOvertake = false;
+                        ot.side = null;
+                    }
+                }
+            }
+
             let approachingRedLight = false;
             let approachingStopSign = false;
             let distanceToIntersection = 100;
-            let pedestrianInCrosswalk = false;
+            // Pedestrian awareness
+            let pedestrianInCrosswalk = false;      // any crosswalk pedestrian (nearby)
+            let pedestrianInMyPath = false;         // pedestrian in ego lane / path
+            let pedestriansNearby = 0;              // count of pedestrians detected around intersection
             let emergencySirenHeard = false;
 
             let seeStopSign = false;
@@ -189,23 +224,36 @@ export default function AIController({ enabled = true }) {
             // --- Sensor Fusion: Camera CV ---
             if (activeSensors.camera && rawSensors.camera?.views?.main) {
                 for (const det of rawSensors.camera.views.main) {
-                    // For intersection control, require decent confidence to avoid phantom braking
+                    // det.x is viewport x, where 0.5 is center. Use this to
+                    // decide whether a signal/light applies to the ego lane.
+                    const centerX = det.x + (det.w || 0) / 2;
+
+                    // For intersection control, require that the traffic light is reasonably
+                    // centered in the field of view and high enough confidence to avoid
+                    // phantom braking from side-facing lights.
                     if ((det.label === 'T-RED' || det.label === 'T-YELLOW') && det.confidence > 0.6) {
-                        approachingRedLight = true; // Map both to "must stop" logic
-                        if (det.distance < distanceToIntersection) {
-                            distanceToIntersection = det.distance;
+                        if (centerX > 0.35 && centerX < 0.65 && det.distance < 80) {
+                            approachingRedLight = true; // Map both to "must stop" logic
+                            if (det.distance < distanceToIntersection) {
+                                distanceToIntersection = det.distance;
+                            }
                         }
                     } else if (det.label === 'STOP-SIGN' && det.confidence > 0.6) {
-                        seeStopSign = true;
-                        if (det.distance < distanceToIntersection) {
-                            distanceToIntersection = det.distance;
+                        if (centerX > 0.35 && centerX < 0.65) {
+                            seeStopSign = true;
+                            if (det.distance < distanceToIntersection) {
+                                distanceToIntersection = det.distance;
+                            }
                         }
                     } else if (det.label === 'PERSON' && det.confidence > 0.5) {
-                        // Only consider pedestrians a threat if they are relatively centered in the camera (in the road)
-                        // det.x is viewport x, where 0.5 is center. Check a band between 0.35 and 0.65.
-                        const centerX = det.x + (det.w || 0) / 2;
-                        if (det.distance < 30 && centerX > 0.35 && centerX < 0.65) {
-                            pedestrianInCrosswalk = true;
+                        // Track all visible pedestrians for context
+                        pedestriansNearby += 1;
+
+                        // Only consider pedestrians a direct lane threat if they are centered and close.
+                        // Use a narrow band around screen center to avoid pedestrians standing on sidewalks
+                        // or side-lanes from triggering a full stop.
+                        if (det.distance < 15 && centerX > 0.45 && centerX < 0.55) {
+                            pedestrianInMyPath = true;
                         }
                     }
                 }
@@ -235,9 +283,13 @@ export default function AIController({ enabled = true }) {
                     // Typical human thermal signature is ~36C. If a blob is hot and roughly human sized, 
                     // or explicitly typed as pedestrian, consider it a crosswalk threat.
                     if (blob.type === 'pedestrian' || (blob.temp >= 34 && blob.temp <= 38 && blob.boundsH < 3)) {
-                        // Check if they are physically narrow to the car's driving path (within 2.5m center-line offset)
-                        if (Math.abs(blob.relX) < 2.5 && blob.relZ > 0 && blob.relZ < 25) {
-                            pedestrianInCrosswalk = true;
+                        pedestriansNearby += 1;
+
+                        // Narrow path check: close to lane center and within short distance ahead.
+                        // Use a tighter lateral threshold so pedestrians standing on the sidewalk
+                        // beside the lane do not count as "in path".
+                        if (Math.abs(blob.relX) < 1.0 && blob.relZ > 0 && blob.relZ < 15) {
+                            pedestrianInMyPath = true;
                         }
                     }
                 }
@@ -259,19 +311,42 @@ export default function AIController({ enabled = true }) {
             // Convert zone speed limit from MPH to m/s 
             const zoneSpeedLimitMps = (SPEED_LIMITS[vehicle.currentZone] || 35) * 0.44704;
 
+            // Approximate a scalar visibility score (0–1) from time of day and weather
+            let visibility = 1.0;
+            if (sensors.timeOfDay === 'dusk') visibility = 0.7;
+            if (sensors.timeOfDay === 'night') visibility = 0.4;
+            if (sensors.weather === 'fog') visibility -= 0.3;
+            if (sensors.weather === 'rain') visibility -= 0.2;
+            visibility = Math.max(0, Math.min(1, visibility));
+
+            // Derive a simple "any pedestrians" flag for backwards compatibility / UI,
+            // while keeping a stricter "in my path" flag for safety overrides and RL.
+            if (pedestriansNearby > 0) {
+                pedestrianInCrosswalk = true;
+            }
+
             const worldState = {
                 speed: vehicle.speed,
                 pathClear,
                 alignedWithWaypoint,
                 speedLimit: zoneSpeedLimitMps,
-                targetDirection,
+                // If we are in a committed overtake, expose that as the steering
+                // target so the AIDriver can honor it consistently.
+                targetDirection: ot.inOvertake && ot.side ? ot.side : targetDirection,
                 distanceToObstacle,
                 approachingRedLight,
                 approachingStopSign,
                 distanceToIntersection,
                 pedestrianInCrosswalk,
+                pedestrianInMyPath,
+                pedestriansNearby,
                 emergencySirenHeard,
                 inIntersection,
+                inOvertake: ot.inOvertake,
+                overtakeSide: ot.side,
+                // Additional context for DQN state vector
+                zoneIsSchool: vehicle.currentZone === 'school',
+                visibility,
             };
 
             // 1. Tick the AI Engine
