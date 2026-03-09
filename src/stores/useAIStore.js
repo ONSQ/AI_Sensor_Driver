@@ -22,12 +22,19 @@ const useAIStore = create((set) => ({
 
     updateGlassboxData: (data) => set((s) => {
         // Optionally create a running log 
+        const qValues = data.decision?.allScores
+            ? data.decision.allScores.map((s) => ({ action: s.action, score: s.score }))
+            : null;
+
         const logEntry = {
             timestamp: Date.now(),
             action: data.action,
             isOverride: data.isOverride,
             confidence: data.perception?.confidence || 0,
-            reason: data.safety ? data.safety.reason : 'Utility routing'
+            reason: data.safety ? data.safety.reason : 'Utility routing',
+            policyType: data.isOverride ? 'safety' : (data.decision?.engineType || 'unknown'),
+            qValues,
+            stateSnapshot: data.worldState || null,
         };
 
         return {
