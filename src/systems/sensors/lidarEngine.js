@@ -12,6 +12,15 @@ import { distanceToLidarColor } from './sensorUtils.js';
 const _origin = new THREE.Vector3();
 const _direction = new THREE.Vector3();
 
+function isDescendantOf(obj, ancestor) {
+  let current = obj.parent;
+  while (current != null) {
+    if (current === ancestor) return true;
+    current = current.parent;
+  }
+  return false;
+}
+
 /**
  * Run one LiDAR tick.
  *
@@ -22,9 +31,10 @@ const _direction = new THREE.Vector3();
  * @param {string} weather - 'clear' | 'rain' | 'fog'
  * @param {number} prevSweep - previous sweep angle (radians)
  * @param {number} delta - frame delta (seconds)
+ * @param {THREE.Object3D | THREE.Object3D[]} [excludeFromLidar] - object(s) to exclude (e.g. player vehicle)
  * @returns {{ points: object[], sweepAngle: number, effectiveRange: number }}
  */
-export function tickLidar(vehicle, raycaster, scene, settings, weather, prevSweep, delta) {
+export function tickLidar(vehicle, raycaster, scene, settings, weather, prevSweep, delta, excludeFromLidar) {
   const { position, heading } = vehicle;
   const [vx, , vz] = position;
   const eyeY = 1.5; // vehicle eye height
@@ -42,9 +52,16 @@ export function tickLidar(vehicle, raycaster, scene, settings, weather, prevSwee
   const angleStep = (Math.PI * 2) / rayCount;
   const points = [];
 
-  // Collect scene objects once for raycasting
-  // Filter to only include mesh-containing children (skip HUD/helper objects)
-  const sceneChildren = scene.children;
+  // Build raycast targets: all meshes in scene except the excluded object(s) and their descendants
+  const excludeList = excludeFromLidar ? (Array.isArray(excludeFromLidar) ? excludeFromLidar : [excludeFromLidar]) : [];
+  const isExcluded = (obj) => excludeList.some((ex) => obj === ex || isDescendantOf(obj, ex));
+  const targets = [];
+  scene.traverse((obj) => {
+    if (!obj.isMesh) return;
+    if (obj.userData && obj.userData.isGround) return; // skip ground plane (avoids ring of points around car)
+    if (isExcluded(obj)) return;
+    targets.push(obj);
+  });
 
   for (let i = 0; i < rayCount; i++) {
     const rayAngle = heading + i * angleStep + sweepAngle;
@@ -66,7 +83,7 @@ export function tickLidar(vehicle, raycaster, scene, settings, weather, prevSwee
 
       raycaster.set(_origin, _direction);
 
-      const hits = raycaster.intersectObjects(sceneChildren, true);
+      const hits = raycaster.intersectObjects(targets, false);
 
       if (hits.length > 0) {
         const hit = hits[0];
@@ -79,6 +96,8 @@ export function tickLidar(vehicle, raycaster, scene, settings, weather, prevSwee
         }
 
         if (distance <= effectiveRange) {
+          // Skip ground-level hits (road, sidewalk, ground plane) to avoid ring of points around car
+          if (hit.point.y < 0.4) continue;
           const color = distanceToLidarColor(distance);
           points.push({
             x: hit.point.x,

@@ -1,7 +1,6 @@
 // ============================================================
-// LidarPanel — HTML canvas overlay: forward-facing LiDAR point cloud
-// Perspective projection — like looking through the windshield.
-// Reads lidarData from sensor store, draws at ~15fps.
+// LidarPanel — HTML canvas overlay: top-down (bird's-eye) LiDAR point cloud
+// Vehicle at center, forward = up. Reads lidarData from sensor store, draws at ~15fps.
 // ============================================================
 
 import { useRef, useEffect, useCallback } from 'react';
@@ -11,10 +10,8 @@ import { LIDAR } from '../../constants/sensors.js';
 import { hexToRGB } from '../../systems/sensors/sensorUtils.js';
 import DraggablePanel from './DraggablePanel.jsx';
 
-const EYE_Y = 1.5;
-const FOV_DEG = LIDAR.FRONT_VIEW_FOV || 75;
-const FOV_RAD = (FOV_DEG * Math.PI) / 180;
-const TAN_HALF_FOV = Math.tan(FOV_RAD / 2);
+// Zoomed-in view: show half the range so nearby detail is larger (2x zoom)
+const VIEW_ZOOM = 2;
 
 export default function LidarPanel({ visible = true }) {
   const canvasRef = useRef(null);
@@ -26,14 +23,18 @@ export default function LidarPanel({ visible = true }) {
     const ctx = canvas.getContext('2d');
     const W = canvas.width;
     const H = canvas.height;
-    const halfW = W / 2;
-    const halfH = H / 2;
-    const aspect = W / H;
+    const cx = W / 2;
+    const cy = H / 2;
 
-    const { points, sweepAngle, effectiveRange } = useSensorStore.getState().lidarData;
+    const { points, effectiveRange } = useSensorStore.getState().lidarData;
     const { position, heading } = useVehicleStore.getState();
     const [vx, , vz] = position;
     const rayCount = useSensorStore.getState().sensors.lidar.rayCount;
+
+    // Scale: zoomed-in view — show effectiveRange/VIEW_ZOOM so nearby detail is larger
+    const radiusPx = Math.min(W, H) / 2 - 4;
+    const visibleRange = effectiveRange / VIEW_ZOOM;
+    const scale = radiusPx / Math.max(1, visibleRange);
 
     const cosH = Math.cos(heading);
     const sinH = Math.sin(heading);
@@ -42,77 +43,24 @@ export default function LidarPanel({ visible = true }) {
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, W, H);
 
-    // --- Horizon line ---
-    // Project ground plane (Y=0) at eye height
-    // localY = 0 - EYE_Y = -EYE_Y → projects to positive screen Y (below center)
-    // At infinite distance, ndcY = 0, so horizon is at halfH
-    ctx.strokeStyle = 'rgba(0,255,136,0.12)';
-    ctx.lineWidth = 0.5;
-    ctx.beginPath();
-    ctx.moveTo(0, halfH);
-    ctx.lineTo(W, halfH);
-    ctx.stroke();
-
-    // --- Depth grid lines (project horizontal lines at ground level) ---
-    const gridDistances = [10, 20, 40, 60];
-    ctx.strokeStyle = 'rgba(0,255,136,0.08)';
-    ctx.lineWidth = 0.5;
-    ctx.font = '7px monospace';
-    ctx.textAlign = 'right';
-    ctx.fillStyle = 'rgba(0,255,136,0.2)';
-
-    for (const d of gridDistances) {
-      // Ground plane at distance d: localZ=d, localY=-EYE_Y
-      const ndcY = -EYE_Y / (d * TAN_HALF_FOV);
-      const screenY = halfH - ndcY * halfH;
-      if (screenY < 0 || screenY > H) continue;
-
-      ctx.beginPath();
-      ctx.moveTo(0, screenY);
-      ctx.lineTo(W, screenY);
-      ctx.stroke();
-
-      ctx.fillText(`${d}m`, W - 4, screenY - 2);
-    }
-
-    // --- Crosshair ---
-    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-    ctx.lineWidth = 0.5;
-    ctx.beginPath();
-    ctx.moveTo(halfW, 0);
-    ctx.lineTo(halfW, H);
-    ctx.stroke();
-
-    // --- Draw LiDAR points ---
+    // --- Draw LiDAR points (vehicle-relative, rotated so forward = up) ---
     let visibleCount = 0;
     for (const p of points) {
-      // Vehicle-relative position
       const relX = p.x - vx;
       const relZ = p.z - vz;
-      const relY = p.y - EYE_Y;
-
-      // Rotate into camera-local space
-      // Forward = positive localZ (into the screen)
+      // Vehicle forward in world (physics) = (-sin(h), -cos(h)) in XZ, so ahead = negative relZ when h=0.
+      // Rotate to vehicle-local: localX = right, localZ = forward (positive ahead).
       const localX = relX * cosH - relZ * sinH;
-      const localZ = -relX * sinH - relZ * cosH;
+      const localZ = relX * sinH + relZ * cosH;
+      // Screen: forward = up (smaller py), so py = cy + localZ*scale (ahead = neg localZ -> smaller py)
+      const px = cx + localX * scale;
+      const py = cy + localZ * scale;
 
-      // Skip points behind camera
-      if (localZ <= 0.5) continue;
-
-      // Perspective projection
-      const ndcX = localX / (localZ * TAN_HALF_FOV * aspect);
-      const ndcY = relY / (localZ * TAN_HALF_FOV);
-
-      // NDC to canvas pixels
-      const px = halfW + ndcX * halfW;
-      const py = halfH - ndcY * halfH;
-
-      // Skip if outside canvas
       if (px < -2 || px > W + 2 || py < -2 || py > H + 2) continue;
+      const dist = Math.sqrt(localX * localX + localZ * localZ);
+      if (dist > visibleRange) continue;
 
-      // Point size: closer = larger
-      const ptSize = Math.max(1.5, Math.min(6, 2 + 3 / localZ));
-
+      const ptSize = Math.max(1, Math.min(4, 2 + 8 / (dist + 1)));
       const c = hexToRGB(p.color);
       ctx.fillStyle = `rgb(${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)})`;
       ctx.beginPath();
@@ -121,22 +69,28 @@ export default function LidarPanel({ visible = true }) {
       visibleCount++;
     }
 
-    // --- Sweep indicator (small arc at top) ---
-    const sweepNorm = (sweepAngle % (Math.PI * 2)) / (Math.PI * 2);
-    ctx.fillStyle = 'rgba(0,255,136,0.3)';
-    ctx.fillRect(0, 0, W * sweepNorm, 2);
+    // --- Vehicle triangle (forward = up) ---
+    const triSize = 8;
+    ctx.fillStyle = 'rgba(0,255,136,0.9)';
+    ctx.strokeStyle = 'rgba(0,255,136,1)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - triSize);
+    ctx.lineTo(cx - triSize * 0.6, cy + triSize * 0.7);
+    ctx.lineTo(cx + triSize * 0.6, cy + triSize * 0.7);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
 
     // --- Info label ---
     ctx.fillStyle = 'rgba(0,255,136,0.5)';
     ctx.font = '7px monospace';
     ctx.textAlign = 'left';
-    ctx.fillText(`${rayCount} rays  ${Math.round(effectiveRange)}m  ${visibleCount} pts`, 4, H - 4);
+    ctx.fillText(`${rayCount}r  ${Math.round(visibleRange)}m  ${visibleCount} pts`, 4, H - 4);
 
-    // --- "FRONT VIEW" label ---
     ctx.fillStyle = 'rgba(255,255,255,0.25)';
-    ctx.font = '7px monospace';
     ctx.textAlign = 'right';
-    ctx.fillText('FRONT VIEW', W - 4, H - 4);
+    ctx.fillText('TOP VIEW', W - 4, H - 4);
   }, []);
 
   useEffect(() => {

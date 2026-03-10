@@ -11,6 +11,7 @@ import { VEHICLE_DIMS as D, VEHICLE_COLORS as C } from '../../constants/vehicle.
 
 export default function Vehicle({ visible = true }) {
   const groupRef = useRef();
+  const markedRef = useRef(false);
   const wheelFLPivot = useRef();
   const wheelFRPivot = useRef();
   const wheelFLRef = useRef();
@@ -20,6 +21,10 @@ export default function Vehicle({ visible = true }) {
 
   useFrame(() => {
     if (!groupRef.current) return;
+    if (!markedRef.current) {
+      groupRef.current.userData.isPlayerVehicle = true;
+      markedRef.current = true;
+    }
 
     const { position, heading, speed, steerAngle } = useVehicleStore.getState();
 
