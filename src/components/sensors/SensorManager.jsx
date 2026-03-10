@@ -60,6 +60,10 @@ export default function SensorManager({ sensorTargets, collisionData }) {
       sensors.lidar.enabled &&
       (frame + LIDAR.STAGGER_OFFSET) % LIDAR.FRAME_SKIP === 0
     ) {
+      let playerVehicle = null;
+      scene.traverse((obj) => {
+        if (obj.userData && obj.userData.isPlayerVehicle) playerVehicle = obj;
+      });
       const result = tickLidar(
         vehicle,
         raycaster,
@@ -68,6 +72,7 @@ export default function SensorManager({ sensorTargets, collisionData }) {
         weather,
         sweepAngle.current,
         delta * LIDAR.FRAME_SKIP, // scale delta by skip factor
+        playerVehicle || undefined,
       );
       sweepAngle.current = result.sweepAngle;
       sensorState.updateLidar(result);

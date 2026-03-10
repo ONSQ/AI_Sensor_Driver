@@ -1,11 +1,14 @@
-
 import useVehicleStore from '../../stores/useVehicleStore';
 import useGameStore from '../../stores/useGameStore';
 import { GRID, WORLD_HALF } from '../../constants/world';
+import { VEHICLE_START } from '../../constants/vehicle';
 
 export default function Minimap() {
     const position = useVehicleStore((s) => s.position);
-    const heading = useVehicleStore((s) => s.heading);
+    const storeHeading = useVehicleStore((s) => s.heading);
+    const heading = (typeof storeHeading === 'number' && !Number.isNaN(storeHeading))
+        ? storeHeading
+        : VEHICLE_START.HEADING;
     const waypoints = useGameStore((s) => s.waypoints);
     const currentWaypointIndex = useGameStore((s) => s.currentWaypointIndex);
 
@@ -43,8 +46,8 @@ export default function Minimap() {
                 height="100%"
                 viewBox={`0 0 ${MINIMAP_SIZE} ${MINIMAP_SIZE}`}
             >
-                {/* World Container - Translates opposite to vehicle position */}
-                <g transform={`translate(${MINIMAP_SIZE / 2 - vehicleX * ZOOM_LEVEL}, ${MINIMAP_SIZE / 2 - vehicleZ * ZOOM_LEVEL})`}>
+                {/* World Container - Vehicle at center, rotated so forward = up (matches LiDAR) */}
+                <g transform={`translate(${MINIMAP_SIZE / 2}, ${MINIMAP_SIZE / 2}) rotate(${heading * (180 / Math.PI)}) translate(${-vehicleX * ZOOM_LEVEL}, ${-vehicleZ * ZOOM_LEVEL})`}>
 
                     {/* Base Grid / Roads */}
                     <rect
@@ -107,9 +110,9 @@ export default function Minimap() {
 
                 </g>
 
-                {/* Stationary Vehicle Chevron (Always in center) */}
-                <g transform={`translate(${MINIMAP_SIZE / 2}, ${MINIMAP_SIZE / 2}) rotate(${-heading * (180 / Math.PI)})`}>
-                    {/* View Cone (Points UP to -Y) */}
+                {/* Vehicle Chevron - fixed at center, always points up (forward) */}
+                <g transform={`translate(${MINIMAP_SIZE / 2}, ${MINIMAP_SIZE / 2})`}>
+                    {/* View Cone (Points UP) */}
                     <path d="M-20 -40 L0 5 L20 -40 Z" fill="url(#coneGradient)" opacity="0.4" />
 
                     {/* Navigation Chevron (Points UP to -Y) */}

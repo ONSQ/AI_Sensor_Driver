@@ -21,6 +21,9 @@ export const LIDAR = {
   // Front-view projection
   FRONT_VIEW_FOV: 75,                   // degrees — matches first-person camera
 
+  // Top-down view: scale so effectiveRange fits in the panel
+  TOP_VIEW_RANGE_RINGS: [20, 40, 60],  // meters — draw rings at these distances
+
   // Visualization
   POINT_SIZE: 0.25,
   COLOR_CLOSE: '#ff2200',
